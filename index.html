@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>WorkLog — WFH Output Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --brand:#1a6b5c;--brand-light:#e6f4f1;--brand-mid:#5aab95;
+  --surface:#ffffff;--muted:#6b7280;--border:#e5e7eb;--radius:12px;
+  --bg:#f3f4f6;--text:#111827;--text2:#374151
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* ── LOGIN ── */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem}
+.login-card{background:var(--surface);border-radius:16px;border:0.5px solid var(--border);box-shadow:0 4px 24px rgba(0,0,0,0.07);width:100%;max-width:400px;overflow:hidden}
+.login-header{background:var(--brand);padding:2rem;text-align:center}
+.login-logo-icon{width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;margin:0 auto 12px}
+.login-logo-icon svg{width:24px;height:24px;fill:white}
+.login-header h1{font-size:20px;font-weight:600;color:white;margin-bottom:4px}
+.login-header p{font-size:13px;color:rgba(255,255,255,0.75)}
+.login-body{padding:2rem}
+.login-group{margin-bottom:16px}
+.login-group label{display:block;font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:5px}
+.login-group input{width:100%;font-family:'DM Sans',sans-serif;font-size:14px;padding:10px 13px;border:0.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);outline:none;transition:border-color 0.15s}
+.login-group input:focus{border-color:var(--brand-mid);box-shadow:0 0 0 3px rgba(26,107,92,0.08)}
+.login-error{font-size:13px;color:#dc2626;background:#fef2f2;border:0.5px solid #fca5a5;padding:8px 12px;border-radius:7px;margin-bottom:14px;display:none}
+.login-error.show{display:block}
+.btn-login{width:100%;background:var(--brand);color:white;border:none;padding:11px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background 0.15s;margin-top:4px}
+.btn-login:hover{background:#155c4e}
+.login-hint{margin-top:16px;padding:12px;background:var(--brand-light);border-radius:8px;font-size:12px;color:var(--brand)}
+.login-hint strong{display:block;margin-bottom:4px}
+.login-hint span{display:block;color:var(--muted);margin-bottom:2px}
+
+/* ── APP SHELL ── */
+.app-shell{display:none;min-height:100vh;flex-direction:column}
+.app-shell.visible{display:flex}
+.topbar{background:var(--surface);border-bottom:0.5px solid var(--border);padding:0 1.5rem;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:34px;height:34px;border-radius:9px;background:var(--brand);display:flex;align-items:center;justify-content:center}
+.logo-icon svg{width:17px;height:17px;fill:white}
+.logo-text{font-size:15px;font-weight:600;color:var(--text)}
+.logo-sub{font-size:11px;color:var(--muted);letter-spacing:0.05em;text-transform:uppercase}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.user-pill{display:flex;align-items:center;gap:8px;background:var(--bg);border:0.5px solid var(--border);border-radius:20px;padding:4px 12px 4px 6px;font-size:13px}
+.user-avatar{width:26px;height:26px;border-radius:50%;background:var(--brand);color:white;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.user-name{font-weight:500;color:var(--text)}
+.user-role{font-size:11px;color:var(--muted)}
+.admin-badge{background:#fef3c7;color:#92400e;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;border:0.5px solid #fde68a}
+.btn-logout{font-size:13px;color:var(--muted);background:transparent;border:0.5px solid var(--border);border-radius:7px;padding:5px 12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s}
+.btn-logout:hover{border-color:#fca5a5;color:#dc2626;background:#fef2f2}
+.nav{display:flex;gap:4px;background:var(--bg);border-radius:10px;padding:3px;border:0.5px solid var(--border)}
+.nav-btn{padding:5px 14px;border-radius:7px;border:none;cursor:pointer;font-size:13px;font-weight:500;font-family:'DM Sans',sans-serif;transition:all 0.15s;background:transparent;color:var(--muted)}
+.nav-btn.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+
+.app-content{flex:1;padding:1.5rem}
+
+/* ── FORM ── */
+.form-view{display:none}.form-view.visible{display:block}
+.form-card{background:var(--surface);border-radius:var(--radius);border:0.5px solid var(--border);overflow:hidden}
+.form-header{padding:1.5rem 1.75rem;border-bottom:0.5px solid var(--border);background:var(--brand-light)}
+.form-header h2{font-size:18px;font-weight:500;color:var(--brand);margin-bottom:3px}
+.form-header p{font-size:13px;color:var(--brand-mid)}
+.date-badge{display:inline-block;background:white;border:0.5px solid var(--brand-mid);color:var(--brand);font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px;margin-bottom:8px}
+.form-body{padding:1.75rem}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group.full{grid-column:1/-1}
+label{font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em}
+input,select,textarea{font-family:'DM Sans',sans-serif;font-size:14px;padding:9px 12px;border:0.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);transition:border-color 0.15s;width:100%;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--brand-mid);box-shadow:0 0 0 3px rgba(26,107,92,0.08)}
+input[readonly]{background:#f9fafb;color:var(--muted);cursor:default}
+textarea{resize:vertical;min-height:80px;line-height:1.5}
+
+/* tasks */
+.tasks-section{margin-top:20px}
+.tasks-label-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.tasks-label{font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em}
+.hours-total-pill{background:var(--brand-light);border:0.5px solid var(--brand-mid);color:var(--brand);font-size:12px;font-weight:600;padding:3px 12px;border-radius:20px;display:flex;align-items:center;gap:5px}
+.hours-total-pill span{font-weight:400;color:var(--brand-mid)}
+.tasks-table-head{display:grid;grid-template-columns:28px 1fr 130px 80px 28px;gap:8px;padding:0 4px 6px;border-bottom:0.5px solid var(--border);margin-bottom:6px}
+.tasks-table-head div{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em}
+.task-row{display:grid;grid-template-columns:28px 1fr 130px 80px 28px;gap:8px;align-items:center;margin-bottom:6px}
+.task-num{width:24px;height:24px;background:var(--brand-light);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--brand);flex-shrink:0}
+.task-row input[type=number]{text-align:center}
+.category-select{font-size:12px;padding:7px 10px}
+.btn-remove{width:26px;height:26px;border-radius:50%;border:0.5px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted);transition:all 0.15s;flex-shrink:0}
+.btn-remove:hover{background:#fef2f2;border-color:#fca5a5;color:#ef4444}
+.btn-add-task{margin-top:8px;background:transparent;border:0.5px dashed var(--brand-mid);color:var(--brand);padding:7px 14px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;width:100%;font-family:'DM Sans',sans-serif;transition:all 0.15s}
+.btn-add-task:hover{background:var(--brand-light)}
+.hours-warning{font-size:12px;margin-top:8px;padding:8px 12px;border-radius:8px;display:none;align-items:center;gap:6px}
+.hours-warning.over{display:flex;background:#fef2f2;color:#991b1b;border:0.5px solid #fca5a5}
+.hours-warning.under{display:flex;background:#fef9c3;color:#854d0e;border:0.5px solid #fde68a}
+.hours-warning.ok{display:flex;background:#dcfce7;color:#166534;border:0.5px solid #86efac}
+.form-footer{padding:1rem 1.75rem;border-top:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.status-select-wrap{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.status-dot{width:8px;height:8px;border-radius:50%}
+.btn-submit{background:var(--brand);color:white;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s}
+.btn-submit:hover{background:#155c4e}
+.btn-submit:active{transform:scale(0.98)}
+
+/* ── USER HISTORY ── */
+.hist-view{display:none}.hist-view.visible{display:block}
+.hist-card{background:var(--surface);border-radius:var(--radius);border:0.5px solid var(--border);overflow:hidden}
+.hist-header{padding:1rem 1.25rem;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.hist-header h3{font-size:15px;font-weight:500}
+
+/* ── ADMIN DASHBOARD ── */
+.dash-view{display:none}.dash-view.visible{display:block}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.25rem}
+.stat-card{background:var(--surface);border-radius:10px;border:0.5px solid var(--border);padding:1rem 1.25rem}
+.stat-label{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px}
+.stat-val{font-size:26px;font-weight:500;color:var(--text);line-height:1}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:3px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.25rem}
+.panel{background:var(--surface);border-radius:var(--radius);border:0.5px solid var(--border);overflow:hidden}
+.panel-head{padding:.85rem 1.25rem;border-bottom:0.5px solid var(--border);font-size:14px;font-weight:500;color:var(--text)}
+.panel-body{padding:1rem 1.25rem}
+.cat-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.cat-label{font-size:13px;color:var(--text);min-width:100px}
+.cat-bar-wrap{flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden}
+.cat-bar{height:8px;border-radius:4px;transition:width 0.5s}
+.cat-val{font-size:12px;font-weight:500;color:var(--muted);min-width:40px;text-align:right}
+.submissions-card{background:var(--surface);border-radius:var(--radius);border:0.5px solid var(--border);overflow:hidden}
+.sub-header{padding:1rem 1.25rem;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.sub-header h3{font-size:15px;font-weight:500}
+.filter-row{display:flex;gap:6px;flex-wrap:wrap}
+.filter-btn{padding:5px 12px;border-radius:6px;border:0.5px solid var(--border);background:transparent;cursor:pointer;font-size:12px;font-weight:500;font-family:'DM Sans',sans-serif;color:var(--muted);transition:all 0.15s}
+.filter-btn.active{background:var(--brand-light);border-color:var(--brand-mid);color:var(--brand)}
+.sub-table{width:100%;border-collapse:collapse;font-size:13px}
+.sub-table th{padding:10px 14px;text-align:left;font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;border-bottom:0.5px solid var(--border);background:var(--bg)}
+.sub-table td{padding:11px 14px;border-bottom:0.5px solid var(--border);color:var(--text);vertical-align:middle}
+.sub-table tr:last-child td{border-bottom:none}
+.sub-table tr:hover td{background:var(--bg)}
+.emp-cell{display:flex;align-items:center;gap:8px}
+.avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500}
+.badge-done{background:#dcfce7;color:#166534}
+.badge-progress{background:#fef9c3;color:#854d0e}
+.badge-blocked{background:#fee2e2;color:#991b1b}
+.badge-dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+.hrs-breakdown{display:flex;flex-wrap:wrap;gap:4px}
+.hrs-tag{font-size:11px;padding:2px 7px;border-radius:12px;font-weight:500}
+.no-data{padding:3rem;text-align:center;color:var(--muted);font-size:14px}
+
+/* dept filter search */
+.dept-search{padding:5px 10px;font-size:12px;width:160px}
+
+/* ── TOAST ── */
+.toast{position:fixed;top:20px;right:20px;background:var(--brand);color:white;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;opacity:0;transform:translateY(-10px);transition:all 0.3s;pointer-events:none;z-index:999}
+.toast.show{opacity:1;transform:translateY(0)}
+
+/* ── ADMIN USERS PANEL ── */
+.users-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;padding:1rem 1.25rem}
+.user-card{background:var(--bg);border-radius:10px;border:0.5px solid var(--border);padding:12px;display:flex;align-items:center;gap:10px}
+.user-card-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0}
+.user-card-name{font-size:13px;font-weight:500;color:var(--text)}
+.user-card-dept{font-size:11px;color:var(--muted);margin-top:2px}
+.user-card-count{font-size:11px;color:var(--brand);margin-top:2px}
+
+.depthead-badge{background:#ede9fe;color:#5b21b6;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;border:0.5px solid #c4b5fd}
+.badge-approved{background:#dcfce7;color:#166534}
+.badge-rejected{background:#fee2e2;color:#991b1b}
+.badge-pending{background:#f3f4f6;color:#6b7280}
+.approve-note{font-size:11px;color:var(--muted);margin-top:2px;font-style:italic}
+.approve-view{display:none}.approve-view.visible{display:block}
+.approve-card{background:var(--surface);border-radius:var(--radius);border:0.5px solid var(--border);overflow:hidden;margin-bottom:1.25rem}
+.approve-header{padding:1rem 1.25rem;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.approve-header h3{font-size:15px;font-weight:500}
+.dept-tag{background:#ede9fe;color:#5b21b6;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;border:0.5px solid #c4b5fd}
+.btn-approve{background:#dcfce7;color:#166534;border:0.5px solid #86efac;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s}
+.btn-approve:hover{background:#bbf7d0}
+.btn-reject{background:#fee2e2;color:#991b1b;border:0.5px solid #fca5a5;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s;margin-left:4px}
+.btn-reject:hover{background:#fecaca}
+
+/* DELETE BUTTON STYLE */
+.btn-delete{background:#fee2e2;color:#991b1b;border:0.5px solid #fca5a5;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s}
+.btn-delete:hover{background:#fecaca}
+
+.approval-status-approved{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:#dcfce7;color:#166534}
+.approval-status-rejected{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:#fee2e2;color:#991b1b}
+.approval-status-pending{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:#f3f4f6;color:#6b7280}
+.dh-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:1.25rem}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:none;align-items:center;justify-content:center;z-index:500;padding:1rem}
+.modal-overlay.show{display:flex}
+.modal{background:var(--surface);border-radius:14px;border:0.5px solid var(--border);width:100%;max-width:420px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.12)}
+.modal-head{padding:1.25rem 1.5rem;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-head h4{font-size:15px;font-weight:500}
+.modal-close{background:transparent;border:none;cursor:pointer;font-size:18px;color:var(--muted);line-height:1}
+.modal-body{padding:1.5rem}
+.modal-body textarea{width:100%;min-height:80px;resize:vertical}
+.modal-body label{display:block;font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px}
+.modal-footer{padding:1rem 1.5rem;border-top:0.5px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+.btn-modal-cancel{background:transparent;border:0.5px solid var(--border);color:var(--muted);padding:8px 18px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif}
+.btn-modal-confirm{background:var(--brand);color:white;border:none;padding:8px 18px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif}
+.btn-modal-confirm.reject{background:#ef4444}
+.appr-filter-btn{padding:5px 12px;border-radius:6px;border:0.5px solid var(--border);background:transparent;cursor:pointer;font-size:12px;font-weight:500;font-family:'DM Sans',sans-serif;color:var(--muted);transition:all 0.15s}
+.appr-filter-btn.active{background:var(--brand-light);border-color:var(--brand-mid);color:var(--brand)}
+.submit-time{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);white-space:nowrap}
+.submit-time svg{flex-shrink:0;opacity:0.55}
+
+/* ── REGISTRATION REQUESTS ── */
+.reg-req-card{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:12px;border:0.5px solid var(--border);border-radius:8px;background:var(--bg);margin-bottom:8px}
+.reg-req-info{font-size:13px}
+.reg-req-name{font-weight:500;color:var(--text);margin-bottom:2px}
+.reg-req-meta{font-size:11px;color:var(--muted)}
+.reg-req-actions{display:flex;gap:6px;flex-shrink:0}
+.btn-view{background:var(--brand-light);color:var(--brand);border:0.5px solid var(--brand-mid);padding:4px 10px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s}
+.btn-view:hover{background:#c7ede6}
+.view-modal{max-width:600px}
+.view-modal .modal-head{background:var(--brand-light);border-bottom:0.5px solid var(--brand-mid)}
+.view-modal .modal-head h4{color:var(--brand);font-size:15px}
+.view-meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.view-meta-item{background:var(--bg);border-radius:8px;padding:10px 12px;border:0.5px solid var(--border)}
+.view-meta-label{font-size:10px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:3px}
+.view-meta-val{font-size:14px;font-weight:500;color:var(--text)}
+.view-summary-box{background:var(--bg);border-radius:8px;padding:12px;border:0.5px solid var(--border);margin-bottom:16px;font-size:13px;color:var(--text2);line-height:1.6}
+.view-tasks-label{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px}
+.view-task-item{display:grid;grid-template-columns:1fr 90px 70px;gap:8px;align-items:center;padding:8px 10px;border-radius:7px;border:0.5px solid var(--border);background:var(--bg);margin-bottom:6px;font-size:13px}
+.view-task-desc{color:var(--text);font-weight:400}
+.view-task-cat{font-size:11px;padding:2px 8px;border-radius:12px;font-weight:500;text-align:center}
+.view-task-hrs{font-weight:600;color:var(--brand);text-align:right}
+.btn-view{background:var(--brand-light);color:var(--brand);border:0.5px solid var(--brand-mid);padding:4px 10px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s}
+.btn-view:hover{background:#c7ede6}
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN SCREEN ══ -->
+<div class="login-wrap" id="loginWrap">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="login-logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22" fill="none" stroke="white" stroke-width="2"/></svg>
+      </div>
+      <h1>WorkLog</h1>
+      <p>WFH Output Tracker — Sign in to continue</p>
+    </div>
+    <div class="login-body">
+      <div class="login-error" id="loginError">Incorrect username or password.</div>
+      <div class="login-group">
+        <label>Username</label>
+        <input type="text" id="loginUser" placeholder="Enter username" onkeydown="if(event.key==='Enter')doLogin()"/>
+      </div>
+      <div class="login-group">
+        <label>Password</label>
+        <input type="password" id="loginPass" placeholder="Enter password" onkeydown="if(event.key==='Enter')doLogin()"/>
+      </div>
+      <button class="btn-login" onclick="doLogin()">Sign In →</button>
+      <div style="text-align:center;margin-top:14px;font-size:13px;color:var(--muted)">
+        New employee? <a href="#" onclick="openRegisterModal();return false;" style="color:var(--brand);font-weight:500;text-decoration:none">Request Access</a>
+      </div>
+      <div class="login-hint">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP SHELL ══ -->
+<div class="app-shell" id="appShell">
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22" fill="none" stroke="white" stroke-width="2"/></svg>
+      </div>
+      <div>
+        <div class="logo-text">WorkLog</div>
+        <div class="logo-sub">WFH Output Tracker</div>
+      </div>
+    </div>
+    <div class="nav" id="mainNav">
+      <button class="nav-btn active" onclick="showView('form')">Submit Output</button>
+      <button class="nav-btn" onclick="showView('hist')">My Reports</button>
+      <button class="nav-btn admin-only" onclick="showView('dash')" style="display:none">Admin Dashboard</button>
+      <button class="nav-btn depthead-only" onclick="showView('approve')" style="display:none">Dept Approvals</button>
+    </div>
+    <div class="topbar-right">
+      <div class="user-pill">
+        <div class="user-avatar" id="topAvatar">?</div>
+        <div>
+          <div class="user-name" id="topName">—</div>
+          <div class="user-role" id="topRole">—</div>
+        </div>
+        <span class="admin-badge" id="adminBadge" style="display:none">ADMIN</span>
+        <span class="depthead-badge" id="deptheadBadge" style="display:none">DEPT HEAD</span>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="app-content">
+
+    <!-- ── SUBMIT FORM ── -->
+    <div class="form-view visible" id="formView">
+      <div class="form-card">
+        <div class="form-header">
+          <div class="date-badge" id="todayBadge"></div>
+          <h2>Daily Work Output Report</h2>
+          <p>Submit your accomplished tasks and hours spent per activity</p>
+        </div>
+        <div class="form-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Employee Name</label>
+              <input type="text" id="empName" placeholder="Your full name" readonly/>
+            </div>
+            <div class="form-group">
+              <label>Department</label>
+<select id=Department name="department" required>
+  <option value="">-- Select Department --</option>
+  <option value="SHS">SHS</option>
+  <option value="SKILLS">SKILLS</option>
+  <option value="SEAMAN">SEAMAN</option>
+  <option value="PSEFI">PSEFI</option>
+  <option value="PSI">PSI</option>
+  <option value="COOP">COOP</option>
+              <input type="text" id="dept" placeholder="e.g. Engineering, Marketing, Finance…"/>
+            </div>
+            <div class="form-group">
+              <label>Work Date</label>
+              <input type="date" id="workDate"/>
+            </div>
+            <div class="form-group">
+              <label>Total Expected Hours</label>
+              <input type="number" id="totalHours" placeholder="e.g. 8" min="1" max="24" value="8.75" oninput="updateHoursSummary()"/>
+            </div>
+            <div class="form-group full">
+              <label>Summary / Notes</label>
+              <textarea id="summary" placeholder="Brief summary of your work today, any blockers or updates…"></textarea>
+            </div>
+          </div>
+          <div class="tasks-section">
+            <div class="tasks-label-row">
+              <div class="tasks-label">Tasks &amp; Hours per Activity</div>
+              <div class="hours-total-pill">
+                <span>Logged:</span>
+                <strong id="loggedHours">0</strong>h
+                <span>/ <span id="expectedHoursLabel">8</span>h</span>
+              </div>
+            </div>
+            <div class="tasks-table-head">
+              <div>#</div><div>Activity / Task</div><div>Category</div><div>Hours</div><div></div>
+            </div>
+            <div id="taskList"></div>
+            <div class="hours-warning" id="hoursWarning"></div>
+            <button class="btn-add-task" onclick="addTask()">+ Add another activity</button>
+          </div>
+        </div>
+        <div class="form-footer">
+          <div class="status-select-wrap">
+            <div class="status-dot" id="statusDot" style="background:#22c55e"></div>
+            <select id="statusSel" onchange="updateDot()" style="border:none;background:transparent;color:var(--muted);font-size:13px;cursor:pointer;padding:0;outline:none;font-family:'DM Sans',sans-serif">
+              <option value="done">All tasks completed</option>
+              <option value="progress">Work in progress</option>
+              <option value="blocked">Blocked / needs help</option>
+            </select>
+          </div>
+          <button class="btn-submit" onclick="submitForm()">Submit Report →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── MY REPORTS (user history) ── -->
+    <div class="hist-view" id="histView">
+      <div class="hist-card">
+        <div class="hist-header">
+          <h3>My Submitted Reports</h3>
+        </div>
+        <table class="sub-table">
+          <thead>
+            <tr><th>Date</th><th>Department</th><th>Total Hours</th><th>Activities</th><th>Status</th><th>Approval</th><th>Submitted At</th><th></th></tr>
+          </thead>
+          <tbody id="histTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+
+    <!-- ── DEPT HEAD APPROVAL VIEW ── -->
+    <div class="approve-view" id="approveView">
+      <div class="dh-stats">
+        <div class="stat-card">
+          <div class="stat-label">Pending Approval</div>
+          <div class="stat-val" id="dhPendingCount" style="color:#854d0e">0</div>
+          <div class="stat-sub">Awaiting review</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Approved</div>
+          <div class="stat-val" id="dhApprovedCount" style="color:#166534">0</div>
+          <div class="stat-sub">This dept</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Rejected</div>
+          <div class="stat-val" id="dhRejectedCount" style="color:#991b1b">0</div>
+          <div class="stat-sub">This dept</div>
+        </div>
+      </div>
+      <div class="approve-card">
+        <div class="approve-header">
+          <h3>Department Submissions</h3>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span class="dept-tag" id="dhDeptTag">—</span>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="appr-filter-btn active" onclick="filterApprove('all',this)">All</button>
+              <button class="appr-filter-btn" onclick="filterApprove('pending',this)">Pending</button>
+              <button class="appr-filter-btn" onclick="filterApprove('approved',this)">Approved</button>
+              <button class="appr-filter-btn" onclick="filterApprove('rejected',this)">Rejected</button>
+            </div>
+          </div>
+        </div>
+        <table class="sub-table">
+          <thead>
+            <tr><th>Employee</th><th>Date</th><th>Total Hours</th><th>Activities</th><th>Work Status</th><th>Approval</th><th>Submitted At</th><th>Action</th></tr>
+          </thead>
+          <tbody id="approveTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── ADMIN DASHBOARD ── -->
+    <div class="dash-view" id="dashView">
+      <!-- stats -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Total Submissions</div>
+          <div class="stat-val" id="totalCount">0</div>
+          <div class="stat-sub">All time</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Today's Reports</div>
+          <div class="stat-val" id="todayCount">0</div>
+          <div class="stat-sub" id="todayDateSub"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Avg Hours Logged</div>
+          <div class="stat-val" id="avgHours">—</div>
+          <div class="stat-sub">Per report</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Blocked</div>
+          <div class="stat-val" id="blockedCount" style="color:#ef4444">0</div>
+          <div class="stat-sub">Need attention</div>
+        </div>
+      </div>
+
+      <!-- charts -->
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-head">Hours by Category</div>
+          <div class="panel-body" id="catChart"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">On-Time vs Delayed Submissions <span style="font-size:11px;color:var(--muted);font-weight:400">(deadline: 8:00 PM)</span></div>
+          <div class="panel-body" id="onTimePanel"></div>
+        </div>
+      </div>
+
+      <!-- pending registrations (admin only) -->
+      <div class="panel" style="margin-bottom:1.25rem" id="pendingRegPanel">
+        <div class="panel-head" style="display:flex;align-items:center;justify-content:space-between">
+          <span>Pending Registration Requests</span>
+          <span class="admin-badge" id="pendingRegBadge" style="display:none">0</span>
+        </div>
+        <div id="pendingRegBody" style="padding:0 1.25rem 1rem"></div>
+      </div>
+
+      <!-- registered users -->
+      <div class="panel" style="margin-bottom:1.25rem">
+        <div class="panel-head">Registered Users</div>
+        <div class="users-grid" id="usersGrid"></div>
+      </div>
+
+      <!-- submissions table -->
+      <div class="submissions-card">
+        <div class="sub-header">
+          <h3>All Submissions</h3>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="text" class="dept-search" id="deptSearch" placeholder="Filter by dept…" oninput="renderTable(currentFilter)"/>
+            <div class="filter-row">
+              <button class="filter-btn active" onclick="filterSubs('all',this)">All</button>
+              <button class="filter-btn" onclick="filterSubs('done',this)">Completed</button>
+              <button class="filter-btn" onclick="filterSubs('progress',this)">In Progress</button>
+              <button class="filter-btn" onclick="filterSubs('blocked',this)">Blocked</button>
+              <button class="filter-btn" onclick="filterSubs('pending',this)">Pending Approval</button>
+              <button class="filter-btn" onclick="filterSubs('approved',this)">Approved</button>
+              <button class="filter-btn" onclick="filterSubs('rejected',this)">Rejected</button>
+            </div>
+          </div>
+        </div>
+        <table class="sub-table">
+          <thead>
+            <tr><th>Employee</th><th>Dept</th><th>Date</th><th>Total Hours</th><th>Activities</th><th>Status</th><th>Approval</th><th>Submitted At</th><th>Action</th></tr>
+          </thead>
+          <tbody id="subTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /app-content -->
+</div><!-- /app-shell -->
+
+
+<!-- Registration Request Modal -->
+<div class="modal-overlay" id="registerModal">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-head" style="background:var(--brand-light);border-bottom:0.5px solid var(--brand-mid)">
+      <h4 style="color:var(--brand)">Request System Access</h4>
+      <button class="modal-close" onclick="closeRegisterModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Fill in your details. An admin will review and approve your access request.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Full Name <span style="color:#ef4444">*</span></label>
+          <input type="text" id="regName" placeholder="LASTNAME, FIRSTNAME M.I." style="text-transform:uppercase"/>
+        </div>
+        <div class="form-group">
+          <label>Employee ID / Username <span style="color:#ef4444">*</span></label>
+          <input type="text" id="regUsername" placeholder="e.g. PS000123"/>
+        </div>
+        <div class="form-group">
+          <label>Department <span style="color:#ef4444">*</span></label>
+          <select id="regDept">
+            <option value="">— Select —</option>
+            <option>SHS</option><option>SKILLS</option><option>SEAMAN</option>
+            <option>PSEFI</option><option>PSI</option><option>COOP</option><option>HR</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Password <span style="color:#ef4444">*</span></label>
+          <input type="password" id="regPassword" placeholder="Choose a password"/>
+        </div>
+        <div class="form-group">
+          <label>Confirm Password <span style="color:#ef4444">*</span></label>
+          <input type="password" id="regPasswordConfirm" placeholder="Repeat password"/>
+        </div>
+      </div>
+      <div id="regError" style="font-size:13px;color:#dc2626;background:#fef2f2;border:0.5px solid #fca5a5;padding:8px 12px;border-radius:7px;margin-bottom:4px;display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="closeRegisterModal()">Cancel</button>
+      <button class="btn-modal-confirm" onclick="submitRegRequest()">Submit Request</button>
+    </div>
+  </div>
+</div>
+
+<!-- View Submission Modal -->
+<div class="modal-overlay" id="viewModal">
+  <div class="modal view-modal">
+    <div class="modal-head">
+      <h4 id="viewModalTitle">Submission Details</h4>
+      <button class="modal-close" onclick="closeViewModal()">✕</button>
+    </div>
+    <div class="modal-body" id="viewModalBody" style="max-height:70vh;overflow-y:auto">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="closeViewModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reject reason modal -->
+<div class="modal-overlay" id="rejectModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h4>Reject Report</h4>
+      <button class="modal-close" onclick="closeRejectModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <label>Reason for rejection (optional)</label>
+      <textarea id="rejectReason" placeholder="Enter reason…"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="closeRejectModal()">Cancel</button>
+      <button class="btn-modal-confirm reject" onclick="confirmReject()">Reject Report</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span>✓</span><span id="toastMsg"></span></div>
+
+<script>
+// ── ACCOUNTS ──────────────────────────────────────────────
+// Add/edit users here. role: 'admin' or 'user'
+const ACCOUNTS = [
+{username:'00001174', password:'welcome', role:'admin',  displayName:'YANGCO, JOHN MICHAEL P.',  dept:'HR'},
+{username:'00001766', password:'welcome', role:'admin',  displayName:'SELLOTE, PATRESS D.',  dept:'HR'},
+{username:'PS003887', password:'welcome', role:'admin',  displayName:'GONZAGA, KARL ANTHONY G.',  dept:'PSEFI'},
+{username:'PS000092', password:'welcome',  role:'depthead',   displayName:'CUBIJANO, JESSIE M.', dept:'SKILLS'},
+{username:'PS000124', password:'primary.com',  role:'user', displayName:'AYING, JOY F.', dept: 'SKILLS'},
+{username:'PS000129', password:'primary.com',  role:'user', displayName:'BANTACULO, JAMESMAE A.', dept:'SHS'},
+{username:'PS000149', password:'primary.com',  role:'user', displayName:'BARIQUIT, ANTONETTE J.', dept:'SKILLS'},
+{username:'PS000125', password:'primary.com',  role:'depthead', displayName:'ABENTULAN, IDA C.', dept:'SEAMAN'},
+{username:'PS003894', password:'primary.com',  role:'user', displayName:'BILLERAN, STEPHANY IRISH O.', dept:'SKILLS'},
+{username:'PS000122', password:'primary.com',  role:'user', displayName:'BITOON, CLAMEL E.', dept:'SKILLS'},
+{username:'PS000150', password:'primary.com',  role:'user', displayName:'BOTE, MARYNEIL ..', dept:'SEAMAN'},
+{username:'PS000144', password:'primary.com',  role:'user', displayName:'CABALLES, JOY V.', dept:'SKILLS'},
+{username:'PS003895', password:'primary.com',  role:'user', displayName:'CABALONA, MYKA ANGELA J.', dept:'SKILLS'},
+{username:'PS003900', password:'primary.com',  role:'user', displayName:'CABURNAY, TRISSHA PEARL S.', dept:'SKILLS'},
+{username:'PS003889', password:'primary.com',  role:'user', displayName:'CABUSAS, ROGER J.', dept:'SKILLS'},
+{username:'PS003897', password:'primary.com',  role:'user', displayName:'CARNICE, JONATHAN T.', dept:'SKILLS'},
+{username:'PS000090', password:'primary.com',  role:'user', displayName:'CASQUEJO, KIRBY R.', dept:'SHS'},
+{username:'PS000132', password:'primary.com',  role:'user', displayName:'CATAYOC, MA. THERESA M.', dept:'SHS'},
+{username:'PS003891', password:'primary.com',  role:'user', displayName:'ERAS, KERSLEY JANE D.', dept:'SKILLS'},
+{username:'PS000094', password:'primary.com',  role:'user', displayName:'GALDONES, JOSE ROY J.', dept:'SKILLS'},
+{username:'PS009336', password:'primary.com',  role:'depthead', displayName:'GAMAO, ROVILLA H.', dept:'SKILLS'},
+{username:'PS000141', password:'primary.com',  role:'user', displayName:'HORTILANO, RAYIAN ..', dept:'SKILLS'},
+{username:'PS000108', password:'primary.com',  role:'user', displayName:'JABIERTO, NIESAN M.', dept:'SKILLS'},
+{username:'PS000130', password:'primary.com',  role:'user', displayName:'JO, JOHN CHRIS B..', dept:'SHS'},
+{username:'PS012268', password:'primary.com',  role:'depthead', displayName:'LIPNICA, MAYLINE L.', dept:'SKILLS'},
+{username:'PS003840', password:'primary.com',  role:'user', displayName:'MANABAT, MARBEN C.', dept:'SKILLS'},
+{username:'PS000145', password:'primary.com',  role:'user', displayName:'MIÑOZA, KENDRICK REY A.', dept:'SHS'},
+{username:'PS000059', password:'primary.com',  role:'user', displayName:'PARAGOSO, AGNES I.', dept:'SKILLS'},
+{username:'PS003890', password:'primary.com',  role:'user', displayName:'PAREDES, CHRIS DIEGO A.', dept:'SKILLS'},
+{username:'PS003902', password:'primary.com',  role:'user', displayName:'RABAGO, DANNY DAVE C.', dept:'SKILLS'},
+{username:'PS000062', password:'primary.com',  role:'depthead', displayName:'RAZ, EUNICE B.', dept:'SHS'},
+{username:'PS000086', password:'primary.com',  role:'user', displayName:'ROMALES, MYRA CARLA T.', dept:'SKILLS'},
+{username:'PS000128', password:'primary.com',  role:'user', displayName:'SARTE, EDELYN R.', dept:'SHS'},
+{username:'PS000134', password:'primary.com',  role:'user', displayName:'SENON, SHAZNEE IYN M.', dept:'SHS'},
+{username:'PS000119', password:'primary.com',  role:'user', displayName:'SUAN, NIÑA CHARISSE N.', dept:'SHS'},
+{username:'PS003893', password:'primary.com',  role:'user', displayName:'TABEL, REY CHRISTOPHER T.', dept:'SKILLS'},
+{username:'PS000142', password:'primary.com',  role:'user', displayName:'TALLO, ARA MARIE ..', dept:'SHS'},
+{username:'PS000056', password:'primary.com',  role:'user', displayName:'TOLEDO, MITZIEL D.', dept:'SHS'},
+{username:'PS003892', password:'primary.com',  role:'user', displayName:'TOÑACAO, ANTHONY N.', dept:'SKILLS'},
+{username:'PS000055', password:'primary.com',  role:'user', displayName:'VILLEGAS, MERRY GRACE T.', dept:'SKILLS'},
+{username:'PS003898', password:'primary.com',  role:'user', displayName:'BATUCAN, REX R.', dept:'SEAMAN'},
+{username:'PS003899', password:'primary.com',  role:'user', displayName:'GARCIA, CHRISTOPHER C.', dept:'SEAMAN'},
+{username:'SI001362', password:'primary.com',  role:'depthead', displayName:'ALBAÑA, MA. ASHLYN M.', dept:'PSI'},
+{username:'SI001717', password:'primary.com',  role:'user', displayName:'ALEMAÑO, RIZA L.', dept:'PSI'},
+{username:'SI001445', password:'primary.com',  role:'user', displayName:'BANGCAL, ROMALD T.', dept:'PSI'},
+{username:'SI001015', password:'primary.com',  role:'user', displayName:'BENABENTE, ANNA LOU A.', dept:'PSI'},
+{username:'SI001715', password:'primary.com',  role:'user', displayName:'DY, JESSA MAE R.', dept:'PSI'},
+{username:'SI001407', password:'primary.com',  role:'user', displayName:'ESTANISLAO, CINDY C.', dept:'PSI'},
+{username:'SI001451', password:'primary.com',  role:'user', displayName:'ESTILOGA, JANICE G.', dept:'PSI'},
+{username:'SI001716', password:'primary.com',  role:'user', displayName:'GARRATE, ROSALINA O.', dept:'PSI'},
+{username:'SI001448', password:'primary.com',  role:'user', displayName:'LOMPOT, CHARLENE E.', dept:'PSI'},
+{username:'SI001444', password:'primary.com',  role:'user', displayName:'PANTOLLANA, SONNY C.', dept:'PSI'},
+{username:'SI001734', password:'primary.com',  role:'user', displayName:'QUIJOTE, JULIDY S.', dept:'PSI'},
+{username:'SI001735', password:'primary.com',  role:'user', displayName:'SABANDAL, GLEEN P.', dept:'PSI'},
+{username:'SI001431', password:'primary.com',  role:'user', displayName:'SAMAL, MELBA C.', dept:'PSI'},
+{username:'SI001453', password:'primary.com',  role:'user', displayName:'SANTIAGO, JR., NOEL A.', dept:'PSI'},
+{username:'SI011737', password:'primary.com',  role:'user', displayName:'ZAMBO, IRENE O.', dept:'PSI'},
+{username:'00001749', password:'primary.com',  role:'depthead', displayName:'QUILO, JACILDA S.', dept:'COOP'},
+{username:'00001775', password:'primary.com',  role:'user', displayName:'ASEHAN, PATHRICK S.', dept:'COOP'},
+{username:'00001902', password:'primary.com',  role:'user', displayName:'MONTEMAYOR, MARIETTA ANNE V.', dept:'COOP'},
+{username:'PS000139', password:'primary.com',  role:'user', displayName:'OLAGUIR, JEAN NINE G.', dept:'PSEFI'},
+{username:'PS000109', password:'primary.com',  role:'user', displayName:'ABALOS, ELOISA MARIE P.', dept:'SHS'},
+
+];
+
+const CATS = ['Development','Meetings','Design','Research','Documentation','Admin','Support','Other'];
+const CAT_COLORS = {
+  'Development':'#1a6b5c','Meetings':'#2563eb','Design':'#7c3aed',
+  'Research':'#ea580c','Documentation':'#0891b2',
+  'Admin':'#854d0e','Support':'#166534','Other':'#6b7280'
+};
+const CAT_BG = {
+  'Development':'#e6f4f1','Meetings':'#eff6ff','Design':'#f3e8ff',
+  'Research':'#fff7ed','Documentation':'#ecfeff',
+  'Admin':'#fef9c3','Support':'#dcfce7','Other':'#f3f4f6'
+};
+const AVATAR_COLORS = ['#1a6b5c','#2563eb','#7c3aed','#dc2626','#ea580c','#0891b2'];
+
+// ── PERSISTENT STORAGE ────────────────────────────────────
+const STORAGE_KEY = 'worklog_submissions_v2';
+const REG_KEY = 'worklog_reg_requests_v1';
+function loadSubmissions(){
+  try{ const raw=localStorage.getItem(STORAGE_KEY); return raw?JSON.parse(raw):[]; }catch(e){return [];}
+}
+function saveSubmissions(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(submissions)); }catch(e){}
+}
+function loadRegRequests(){
+  try{ const raw=localStorage.getItem(REG_KEY); return raw?JSON.parse(raw):[]; }catch(e){return [];}
+}
+function saveRegRequests(){
+  try{ localStorage.setItem(REG_KEY, JSON.stringify(regRequests)); }catch(e){}
+}
+
+let submissions = loadSubmissions();
+let regRequests = loadRegRequests();
+let taskCount = 0;
+let currentFilter = 'all';
+let currentApproveFilter = 'all';
+let currentUser = null;
+let pendingRejectId = null;
+
+// ── LOGIN ─────────────────────────────────────────────────
+function doLogin(){
+  const u = document.getElementById('loginUser').value.trim();
+  const p = document.getElementById('loginPass').value;
+  let acct = ACCOUNTS.find(a => a.username === u && a.password === p);
+  if(!acct){
+    // check approved registrations
+    const reg = regRequests.find(r => r.username === u && r.password === p && r.status === 'approved');
+    if(reg) acct = {username:reg.username, password:reg.password, role:'user', displayName:reg.name.toUpperCase(), dept:reg.dept};
+  }
+  if(!acct){
+    // check if pending
+    const pending = regRequests.find(r => r.username === u && r.status === 'pending');
+    if(pending){ document.getElementById('loginError').textContent='Your registration is pending admin approval.'; }
+    else { document.getElementById('loginError').textContent='Incorrect username or password.'; }
+    document.getElementById('loginError').classList.add('show');
+    return;
+  }
+  document.getElementById('loginError').classList.remove('show');
+  document.getElementById('loginError').textContent='Incorrect username or password.';
+  currentUser = acct;
+  document.getElementById('loginWrap').style.display='none';
+  document.getElementById('appShell').classList.add('visible');
+  setupUserUI();
+  initApp();
+}
+
+function doLogout(){
+  currentUser = null;
+  document.getElementById('appShell').classList.remove('visible');
+  document.getElementById('loginWrap').style.display='flex';
+  document.getElementById('loginUser').value='';
+  document.getElementById('loginPass').value='';
+  showView('form');
+}
+
+function setupUserUI(){
+  const u = currentUser;
+  const initials = u.displayName.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('topAvatar').textContent = initials;
+  document.getElementById('topName').textContent = u.displayName;
+  const roleLabel = u.role==='admin'?'Administrator':u.role==='depthead'?'Department Head':'Employee';
+  document.getElementById('topRole').textContent = roleLabel;
+  document.getElementById('adminBadge').style.display = u.role==='admin' ? '' : 'none';
+  document.getElementById('deptheadBadge').style.display = u.role==='depthead' ? '' : 'none';
+  document.querySelectorAll('.admin-only').forEach(el=>el.style.display = u.role==='admin' ? '' : 'none');
+  document.querySelectorAll('.depthead-only').forEach(el=>el.style.display = u.role==='depthead' ? '' : 'none');
+}
+
+// ── APP INIT ──────────────────────────────────────────────
+function initApp(){
+  const today = new Date();
+  document.getElementById('todayBadge').textContent = today.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('workDate').value = today.toISOString().split('T')[0];
+  document.getElementById('todayDateSub').textContent = today.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  // pre-fill name (readonly) and dept
+  document.getElementById('empName').value = currentUser.displayName;
+  if(currentUser.dept) document.getElementById('dept').value = currentUser.dept;
+  // reset tasks
+  document.getElementById('taskList').innerHTML='';
+  taskCount=0; addTask(); addTask();
+  if(currentUser.role==='admin') showView('dash');
+  else if(currentUser.role==='depthead') showView('approve');
+  else showView('form');
+}
+
+// ── HELPERS ───────────────────────────────────────────────
+function fmtSubmitTime(iso){
+  if(!iso) return '<span class="submit-time">—</span>';
+  const d=new Date(iso);
+  const time=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+  const date=d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  return `<span class="submit-time"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${time}<span style="color:var(--border);margin:0 1px">·</span>${date}</span>`;
+}
+
+// ── TASKS ─────────────────────────────────────────────────
+function makeTaskRow(n){
+  const catOpts = CATS.map(c=>`<option>${c}</option>`).join('');
+  return `<div class="task-row" id="tr${n}">
+    <div class="task-num">${n}</div>
+    <input type="text" class="task-desc" placeholder="Describe the activity…" oninput="updateHoursSummary()"/>
+    <select class="category-select" onchange="updateHoursSummary()">${catOpts}</select>
+    <input type="number" class="task-hrs" placeholder="hrs" min="0.5" max="24" step="0.5" oninput="updateHoursSummary()"/>
+    <button class="btn-remove" onclick="removeTask('tr${n}')">✕</button>
+  </div>`;
+}
+
+function addTask(){
+  taskCount++;
+  const list = document.getElementById('taskList');
+  const div = document.createElement('div');
+  div.innerHTML = makeTaskRow(taskCount);
+  list.appendChild(div.firstChild);
+  updateHoursSummary();
+}
+
+function removeTask(id){
+  const rows = document.querySelectorAll('.task-row');
+  if(rows.length <= 1) return;
+  document.getElementById(id)?.remove();
+  renumberTasks(); updateHoursSummary();
+}
+
+function renumberTasks(){
+  document.querySelectorAll('.task-row').forEach((r,i)=>{
+    r.querySelector('.task-num').textContent = i+1;
+  });
+}
+
+function getTaskData(){
+  return [...document.querySelectorAll('.task-row')].map(r=>({
+    desc: r.querySelector('.task-desc').value.trim(),
+    cat:  r.querySelector('.category-select').value,
+    hrs:  parseFloat(r.querySelector('.task-hrs').value)||0
+  })).filter(t=>t.desc||t.hrs>0);
+}
+
+function updateHoursSummary(){
+  const tasks = getTaskData();
+  const logged = tasks.reduce((a,t)=>a+t.hrs,0);
+  const expected = parseFloat(document.getElementById('totalHours').value)||8;
+  document.getElementById('loggedHours').textContent = logged%1===0?logged:logged.toFixed(1);
+  document.getElementById('expectedHoursLabel').textContent = expected;
+  const w = document.getElementById('hoursWarning');
+  w.className='hours-warning';
+  if(logged>expected){w.className='hours-warning over';w.textContent=`⚠ Logged hours (${logged.toFixed(1)}h) exceed expected (${expected}h).`;}
+  else if(logged>0&&logged<expected*0.75){w.className='hours-warning under';w.textContent=`Note: ${(expected-logged).toFixed(1)}h unaccounted for.`;}
+  else if(logged>0&&Math.abs(logged-expected)<0.1){w.className='hours-warning ok';w.textContent=`All ${expected}h accounted for.`;}
+}
+
+function updateDot(){
+  const v=document.getElementById('statusSel').value;
+  document.getElementById('statusDot').style.background=v==='done'?'#22c55e':v==='progress'?'#f59e0b':'#ef4444';
+}
+
+// ── SUBMIT ────────────────────────────────────────────────
+function submitForm(){
+  const name=document.getElementById('empName').value.trim();
+  const dept=document.getElementById('dept').value.trim();
+  const date=document.getElementById('workDate').value;
+  const totalHours=parseFloat(document.getElementById('totalHours').value);
+  const summary=document.getElementById('summary').value.trim();
+  const tasks=getTaskData();
+  const status=document.getElementById('statusSel').value;
+  if(!name||!dept||!date||!totalHours||tasks.length===0||tasks.some(t=>!t.desc)){
+    showToast('Please fill all fields and add at least one activity.','error');return;
+  }
+  const loggedTotal=tasks.reduce((a,t)=>a+t.hrs,0);
+  const subId = Date.now()+'_'+Math.random().toString(36).slice(2,7);
+  submissions.unshift({id:subId,username:currentUser.username,name,dept,date,totalHours,loggedTotal,summary,tasks,status,approval:'pending',approvalNote:'',approvedBy:'',approvedAt:'',submittedAt:new Date().toISOString()});
+  saveSubmissions();
+  renderDash();
+  // reset form
+  document.getElementById('dept').value=currentUser.dept||'';
+  document.getElementById('summary').value='';
+  document.getElementById('totalHours').value='8';
+  document.getElementById('taskList').innerHTML='';
+  taskCount=0;addTask();addTask();
+  document.getElementById('statusSel').value='done';updateDot();
+  showToast('Report submitted! Pending dept head approval.','success');
+}
+
+// ── HISTORY (my reports) ──────────────────────────────────
+function renderHistory(){
+  const body=document.getElementById('histTableBody');
+  const mine=submissions.filter(s=>s.username===currentUser.username);
+  if(!mine.length){body.innerHTML=`<tr><td colspan="6" class="no-data">No reports submitted yet</td></tr>`;return;}
+  const sm={done:{label:'Completed',cls:'badge-done'},progress:{label:'In Progress',cls:'badge-progress'},blocked:{label:'Blocked',cls:'badge-blocked'}};
+  body.innerHTML=mine.map(s=>{
+    const meta=sm[s.status]||sm.done;
+    const dateFmt=new Date(s.date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    const tagsHTML=s.tasks.slice(0,3).map(t=>`<span class="hrs-tag" style="background:${CAT_BG[t.cat]||'#f3f4f6'};color:${CAT_COLORS[t.cat]||'#374151'}">${t.cat} ${t.hrs%1===0?t.hrs:t.hrs.toFixed(1)}h</span>`).join('');
+    const appr=s.approval||'pending';
+    const apprEl=appr==='approved'?`<span class="approval-status-approved">✓ Approved</span>${s.approvedBy?`<div class="approve-note">by ${s.approvedBy}</div>`:''}`
+      :appr==='rejected'?`<span class="approval-status-rejected">✕ Rejected</span>${s.approvalNote?`<div class="approve-note">${s.approvalNote}</div>`:''}`
+      :`<span class="approval-status-pending">⏳ Pending</span>`;
+    return `<tr>
+      <td style="color:var(--muted)">${dateFmt}</td>
+      <td style="color:var(--muted)">${s.dept}</td>
+      <td><span style="font-weight:600">${s.loggedTotal%1===0?s.loggedTotal:s.loggedTotal.toFixed(1)}h</span><span style="color:var(--muted);font-size:11px"> / ${s.totalHours}h</span></td>
+      <td><div class="hrs-breakdown">${tagsHTML}${s.tasks.length>3?`<span style="font-size:11px;color:var(--muted);padding:2px 4px">+${s.tasks.length-3}</span>`:''}</div></td>
+      <td><span class="badge ${meta.cls}"><span class="badge-dot"></span>${meta.label}</span></td>
+      <td>${apprEl}</td>
+      <td>${fmtSubmitTime(s.submittedAt)}</td>
+      <td><button class="btn-view" onclick="openViewModal('${s.id}')">View</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── ADMIN DASHBOARD ───────────────────────────────────────
+function renderDash(){
+  if(currentUser?.role!=='admin') return;
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('totalCount').textContent=submissions.length;
+  document.getElementById('todayCount').textContent=submissions.filter(s=>s.date===today).length;
+  document.getElementById('blockedCount').textContent=submissions.filter(s=>s.status==='blocked').length;
+  const avg=submissions.length?(submissions.reduce((a,s)=>a+s.loggedTotal,0)/submissions.length):0;
+  document.getElementById('avgHours').textContent=avg?avg.toFixed(1):'—';
+
+  const catTotals={};
+  submissions.forEach(s=>s.tasks.forEach(t=>{catTotals[t.cat]=(catTotals[t.cat]||0)+t.hrs}));
+  const maxCat=Math.max(...Object.values(catTotals),1);
+  const sortedCats=Object.entries(catTotals).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('catChart').innerHTML=sortedCats.length?sortedCats.map(([cat,hrs])=>`
+    <div class="cat-row">
+      <div class="cat-label">${cat}</div>
+      <div class="cat-bar-wrap"><div class="cat-bar" style="width:${Math.round(hrs/maxCat*100)}%;background:${CAT_COLORS[cat]||'#6b7280'}"></div></div>
+      <div class="cat-val">${hrs%1===0?hrs:hrs.toFixed(1)}h</div>
+    </div>`).join(''):'<div style="color:var(--muted);font-size:13px;padding:1rem 0">No data yet</div>';
+
+  const actMap={};
+  submissions.forEach(s=>s.tasks.forEach(t=>{if(t.desc){actMap[t.desc]=(actMap[t.desc]||0)+t.hrs}}));
+  const topActs=Object.entries(actMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const maxAct=Math.max(...topActs.map(a=>a[1]),1);
+
+  // ── ON-TIME vs DELAYED ────────────────────────────────
+  // On-time = submitted on same calendar date as workDate, at or before 8:00 PM
+  const DEADLINE_HOUR = 20; // 8 PM
+  let onTime=0, delayed=0;
+  submissions.forEach(s=>{
+    if(!s.submittedAt || !s.date) return;
+    const sub=new Date(s.submittedAt);
+    const subDate=sub.toISOString().split('T')[0];
+    const sameDay = subDate === s.date;
+    const beforeDeadline = sub.getHours() < DEADLINE_HOUR || (sub.getHours() === DEADLINE_HOUR && sub.getMinutes() === 0 && sub.getSeconds() === 0);
+    if(sameDay && beforeDeadline) onTime++;
+    else delayed++;
+  });
+  const total=onTime+delayed||1;
+  const onTimePct=Math.round(onTime/total*100);
+  const delayedPct=Math.round(delayed/total*100);
+  document.getElementById('onTimePanel').innerHTML=submissions.length?`
+    <div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:13px;color:var(--text)">✅ On Time</span>
+        <span style="font-size:13px;font-weight:600;color:#166534">${onTime} <span style="font-weight:400;color:var(--muted)">(${onTimePct}%)</span></span>
+      </div>
+      <div style="height:10px;background:var(--bg);border-radius:5px;overflow:hidden;border:0.5px solid var(--border)">
+        <div style="height:10px;width:${onTimePct}%;background:#22c55e;border-radius:5px;transition:width 0.5s"></div>
+      </div>
+    </div>
+    <div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:13px;color:var(--text)">⏰ Delayed</span>
+        <span style="font-size:13px;font-weight:600;color:#991b1b">${delayed} <span style="font-weight:400;color:var(--muted)">(${delayedPct}%)</span></span>
+      </div>
+      <div style="height:10px;background:var(--bg);border-radius:5px;overflow:hidden;border:0.5px solid var(--border)">
+        <div style="height:10px;width:${delayedPct}%;background:#ef4444;border-radius:5px;transition:width 0.5s"></div>
+      </div>
+    </div>
+    <div style="margin-top:16px;padding:10px 12px;background:var(--bg);border-radius:8px;border:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:12px;color:var(--muted)">Total Submissions</span>
+      <span style="font-size:20px;font-weight:600;color:var(--text)">${total}</span>
+    </div>
+  `:'<div style="color:var(--muted);font-size:13px;padding:1rem 0">No data yet</div>';
+
+  renderPendingRegistrations();
+
+  // registered users panel
+  const userAccts=ACCOUNTS.filter(a=>a.role==='user');
+  document.getElementById('usersGrid').innerHTML=userAccts.map(a=>{
+    const col=AVATAR_COLORS[a.displayName.length%AVATAR_COLORS.length];
+    const inits=a.displayName.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    const count=submissions.filter(s=>s.username===a.username).length;
+    return `<div class="user-card">
+      <div class="user-card-avatar" style="background:${col}22;color:${col}">${inits}</div>
+      <div>
+        <div class="user-card-name">${a.displayName}</div>
+        <div class="user-card-dept">${a.dept||'—'}</div>
+        <div class="user-card-count">${count} report${count!==1?'s':''}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  renderTable(currentFilter);
+}
+
+function filterSubs(f,btn){
+  currentFilter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable(f);
+}
+
+// ── ADMIN DELETE FUNCTION ─────────────────────────────────
+function deleteReport(id) {
+  if (!confirm("Are you sure you want to delete this report? This action cannot be undone.")) return;
+  
+  submissions = submissions.filter(s => s.id !== id);
+  saveSubmissions();
+  
+  // Refresh dashboard and show confirmation
+  renderDash();
+  showToast("Report deleted successfully", "error");
+}
+
+function renderTable(filter){
+  const body=document.getElementById('subTableBody');
+  const deptQ=(document.getElementById('deptSearch')?.value||'').toLowerCase();
+  let list=submissions;
+  if(['done','progress','blocked'].includes(filter)) list=list.filter(s=>s.status===filter);
+  else if(['pending','approved','rejected'].includes(filter)) list=list.filter(s=>(s.approval||'pending')===filter);
+  if(deptQ) list=list.filter(s=>s.dept.toLowerCase().includes(deptQ));
+  if(!list.length){body.innerHTML=`<tr><td colspan="9" class="no-data">No submissions found</td></tr>`;return;}
+  const sm={done:{label:'Completed',cls:'badge-done'},progress:{label:'In Progress',cls:'badge-progress'},blocked:{label:'Blocked',cls:'badge-blocked'}};
+  body.innerHTML=list.map(s=>{
+    const initials=s.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    const col=AVATAR_COLORS[s.name.length%AVATAR_COLORS.length];
+    const meta=sm[s.status]||sm.done;
+    const dateFmt=new Date(s.date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    const tagsHTML=s.tasks.slice(0,3).map(t=>`<span class="hrs-tag" style="background:${CAT_BG[t.cat]||'#f3f4f6'};color:${CAT_COLORS[t.cat]||'#374151'}">${t.cat} ${t.hrs%1===0?t.hrs:t.hrs.toFixed(1)}h</span>`).join('');
+    return `<tr>
+      <td><div class="emp-cell"><div class="avatar" style="background:${col}22;color:${col}">${initials}</div><span style="font-weight:500">${s.name}</span></div></td>
+      <td style="color:var(--muted)">${s.dept}</td>
+      <td style="color:var(--muted)">${dateFmt}</td>
+      <td><span style="font-weight:600">${s.loggedTotal%1===0?s.loggedTotal:s.loggedTotal.toFixed(1)}h</span><span style="color:var(--muted);font-size:11px"> / ${s.totalHours}h</span></td>
+      <td><div class="hrs-breakdown">${tagsHTML}${s.tasks.length>3?`<span style="font-size:11px;color:var(--muted);padding:2px 4px">+${s.tasks.length-3}</span>`:''}</div></td>
+      <td><span class="badge ${meta.cls}"><span class="badge-dot"></span>${meta.label}</span></td>
+      <td>${(()=>{const a=s.approval||'pending';return a==='approved'?'<span class=\'approval-status-approved\'>✓ Approved</span>':a==='rejected'?'<span class=\'approval-status-rejected\'>✕ Rejected</span>':'<span class=\'approval-status-pending\'>⏳ Pending</span>';})()} </td>
+      <td>${fmtSubmitTime(s.submittedAt)}</td>
+      <td><button class="btn-delete" onclick="deleteReport('${s.id}')">Delete</button> <button class="btn-view" onclick="openViewModal('${s.id}')">View</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── DEPT HEAD APPROVAL ────────────────────────────────────
+function filterApprove(f,btn){
+  currentApproveFilter=f;
+  document.querySelectorAll('.appr-filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderApproveTable();
+}
+
+function renderApproveView(){
+  if(currentUser?.role!=='depthead') return;
+  
+  // LOGIC: Check if current user is Jessie Cubijano
+  const isGlobalApprover = currentUser.displayName === 'CUBIJANO, JESSIE M.';
+  const myDept=currentUser.dept||'';
+  
+  document.getElementById('dhDeptTag').textContent = isGlobalApprover ? 'All Departments' : (myDept || 'My Department');
+  
+  // Filter submissions: All if Jessie, otherwise only the user's department
+  const deptSubs = submissions.filter(s => isGlobalApprover || s.dept.toLowerCase() === myDept.toLowerCase());
+  
+  document.getElementById('dhPendingCount').textContent=deptSubs.filter(s=>(s.approval||'pending')==='pending').length;
+  document.getElementById('dhApprovedCount').textContent=deptSubs.filter(s=>s.approval==='approved').length;
+  document.getElementById('dhRejectedCount').textContent=deptSubs.filter(s=>s.approval==='rejected').length;
+  renderApproveTable();
+}
+
+function renderApproveTable(){
+  const body=document.getElementById('approveTableBody');
+  
+  // LOGIC: Check if current user is Jessie Cubijano
+  const isGlobalApprover = currentUser?.displayName === 'CUBIJANO, JESSIE M.';
+  const myDept=currentUser?.dept||'';
+  
+  // Filter submissions: All if Jessie, otherwise only the user's department
+  let list = submissions.filter(s => isGlobalApprover || s.dept.toLowerCase() === (myDept ? myDept.toLowerCase() : ''));
+  
+  if(currentApproveFilter!=='all') list=list.filter(s=>(s.approval||'pending')===currentApproveFilter);
+  if(!list.length){body.innerHTML=`<tr><td colspan="8" class="no-data">No submissions found</td></tr>`;return;}
+  const sm={done:{label:'Completed',cls:'badge-done'},progress:{label:'In Progress',cls:'badge-progress'},blocked:{label:'Blocked',cls:'badge-blocked'}};
+  body.innerHTML=list.map(s=>{
+    const initials=s.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    const col=AVATAR_COLORS[s.name.length%AVATAR_COLORS.length];
+    const meta=sm[s.status]||sm.done;
+    const dateFmt=new Date(s.date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    const tagsHTML=s.tasks.slice(0,3).map(t=>`<span class="hrs-tag" style="background:${CAT_BG[t.cat]||'#f3f4f6'};color:${CAT_COLORS[t.cat]||'#374151'}">${t.cat} ${t.hrs%1===0?t.hrs:t.hrs.toFixed(1)}h</span>`).join('');
+    const appr=s.approval||'pending';
+    const apprEl=appr==='approved'?`<span class="approval-status-approved">✓ Approved</span>`:appr==='rejected'?`<span class="approval-status-rejected">✕ Rejected</span>`:`<span class="approval-status-pending">⏳ Pending</span>`;
+    const actionEl=appr==='pending'?`<button class="btn-approve" onclick="approveReport('${s.id}')">Approve</button><button class="btn-reject" onclick="openRejectModal('${s.id}')">Reject</button> <button class="btn-view" onclick="openViewModal('${s.id}')">View</button>`:`<button class="btn-view" onclick="openViewModal('${s.id}')">View</button><span style="font-size:11px;color:var(--muted);margin-left:4px">${s.approvedBy?'by '+s.approvedBy:''}</span>`;
+    return `<tr>
+      <td><div class="emp-cell"><div class="avatar" style="background:${col}22;color:${col}">${initials}</div><span style="font-weight:500">${s.name}</span></div></td>
+      <td style="color:var(--muted)">${s.dept}</td>
+      <td style="color:var(--muted)">${dateFmt}</td>
+      <td><span style="font-weight:600">${s.loggedTotal%1===0?s.loggedTotal:s.loggedTotal.toFixed(1)}h</span><span style="color:var(--muted);font-size:11px"> / ${s.totalHours}h</span></td>
+      <td><div class="hrs-breakdown">${tagsHTML}${s.tasks.length>3?`<span style="font-size:11px;color:var(--muted);padding:2px 4px">+${s.tasks.length-3}</span>`:''}</div></td>
+      <td><span class="badge ${meta.cls}"><span class="badge-dot"></span>${meta.label}</span></td>
+      <td>${apprEl}</td>
+      <td>${fmtSubmitTime(s.submittedAt)}</td>
+      <td>${actionEl}</td>
+    </tr>`;
+  }).join('');
+}
+
+function approveReport(id){
+  const s=submissions.find(x=>x.id===id);
+  if(!s) return;
+  s.approval='approved';s.approvedBy=currentUser.displayName;s.approvedAt=new Date().toISOString();
+  saveSubmissions();renderApproveView();showToast('Report approved!','success');
+}
+
+function openRejectModal(id){
+  pendingRejectId=id;document.getElementById('rejectReason').value='';
+  document.getElementById('rejectModal').classList.add('show');
+}
+
+function closeRejectModal(){
+  pendingRejectId=null;document.getElementById('rejectReason').value='';
+  document.getElementById('rejectModal').classList.remove('show');
+}
+
+function confirmReject(){
+  if(!pendingRejectId) return;
+  const s=submissions.find(x=>x.id===pendingRejectId);
+  if(s){
+    s.approval='rejected';s.approvalNote=document.getElementById('rejectReason').value.trim();
+    s.approvedBy=currentUser.displayName;s.approvedAt=new Date().toISOString();
+    saveSubmissions();renderApproveView();showToast('Report rejected.','error');
+  }
+  closeRejectModal();
+}
+
+// ── REGISTRATION MODAL ───────────────────────────────────
+function openRegisterModal(){
+  document.getElementById('regName').value='';
+  document.getElementById('regUsername').value='';
+  document.getElementById('regDept').value='';
+  document.getElementById('regPassword').value='';
+  document.getElementById('regPasswordConfirm').value='';
+  document.getElementById('regError').style.display='none';
+  document.getElementById('registerModal').classList.add('show');
+}
+function closeRegisterModal(){
+  document.getElementById('registerModal').classList.remove('show');
+}
+function submitRegRequest(){
+  const name=document.getElementById('regName').value.trim().toUpperCase();
+  const username=document.getElementById('regUsername').value.trim();
+  const dept=document.getElementById('regDept').value;
+  const pw=document.getElementById('regPassword').value;
+  const pw2=document.getElementById('regPasswordConfirm').value;
+  const errEl=document.getElementById('regError');
+  const showErr=msg=>{errEl.textContent=msg;errEl.style.display='block';};
+  if(!name||!username||!dept||!pw){showErr('Please fill in all required fields.');return;}
+  if(pw!==pw2){showErr('Passwords do not match.');return;}
+  if(pw.length<6){showErr('Password must be at least 6 characters.');return;}
+  const alreadyExists=ACCOUNTS.some(a=>a.username===username)||regRequests.some(r=>r.username===username);
+  if(alreadyExists){showErr('This Employee ID is already registered or has a pending request.');return;}
+  regRequests.push({id:Date.now()+'_'+Math.random().toString(36).slice(2,5),name,username,dept,password:pw,status:'pending',requestedAt:new Date().toISOString()});
+  saveRegRequests();
+  closeRegisterModal();
+  showToast('Access request submitted! An admin will review it shortly.','success');
+}
+
+function renderPendingRegistrations(){
+  const pending=regRequests.filter(r=>r.status==='pending');
+  const badge=document.getElementById('pendingRegBadge');
+  const body=document.getElementById('pendingRegBody');
+  if(!badge||!body) return;
+  if(pending.length>0){badge.style.display='';badge.textContent=pending.length;}
+  else{badge.style.display='none';}
+  if(!pending.length){
+    body.innerHTML='<p style="font-size:13px;color:var(--muted);padding:8px 0">No pending registration requests.</p>';
+    return;
+  }
+  body.innerHTML=pending.map(r=>{
+    const dt=new Date(r.requestedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+    return `<div class="reg-req-card">
+      <div class="reg-req-info">
+        <div class="reg-req-name">${r.name}</div>
+        <div class="reg-req-meta">ID: ${r.username} &nbsp;·&nbsp; Dept: ${r.dept} &nbsp;·&nbsp; Requested: ${dt}</div>
+      </div>
+      <div class="reg-req-actions">
+        <button class="btn-approve" onclick="approveRegRequest('${r.id}')">Approve</button>
+        <button class="btn-reject" onclick="rejectRegRequest('${r.id}')">Reject</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function approveRegRequest(id){
+  const r=regRequests.find(x=>x.id===id);
+  if(!r) return;
+  r.status='approved';r.reviewedAt=new Date().toISOString();
+  saveRegRequests();renderPendingRegistrations();renderDash();
+  showToast(`${r.name} approved! They can now log in.`,'success');
+}
+function rejectRegRequest(id){
+  const r=regRequests.find(x=>x.id===id);
+  if(!r) return;
+  r.status='rejected';r.reviewedAt=new Date().toISOString();
+  saveRegRequests();renderPendingRegistrations();
+  showToast(`Registration for ${r.name} rejected.`,'error');
+}
+
+// ── VIEW SUBMISSION MODAL ─────────────────────────────────
+function openViewModal(id){
+  const s=submissions.find(x=>x.id===id);
+  if(!s) return;
+  const dateFmt=new Date(s.date+'T00:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  const appr=s.approval||'pending';
+  const apprEl=appr==='approved'?`<span class="approval-status-approved">✓ Approved</span>${s.approvedBy?` <span style="font-size:11px;color:var(--muted)">by ${s.approvedBy}</span>`:''}`
+    :appr==='rejected'?`<span class="approval-status-rejected">✕ Rejected</span>${s.approvalNote?`<div style="font-size:11px;color:var(--muted);margin-top:2px;font-style:italic">${s.approvalNote}</div>`:''}`
+    :`<span class="approval-status-pending">⏳ Pending</span>`;
+  const sm={done:{label:'Completed',cls:'badge-done'},progress:{label:'In Progress',cls:'badge-progress'},blocked:{label:'Blocked',cls:'badge-blocked'}};
+  const meta=sm[s.status]||sm.done;
+  const tasksHTML=s.tasks.map((t,i)=>`
+    <div class="view-task-item">
+      <div class="view-task-desc">${i+1}. ${t.desc||'—'}</div>
+      <div><span class="view-task-cat" style="background:${CAT_BG[t.cat]||'#f3f4f6'};color:${CAT_COLORS[t.cat]||'#374151'}">${t.cat}</span></div>
+      <div class="view-task-hrs">${t.hrs%1===0?t.hrs:t.hrs.toFixed(1)}h</div>
+    </div>`).join('');
+  document.getElementById('viewModalTitle').textContent=`${s.name} — ${dateFmt}`;
+  document.getElementById('viewModalBody').innerHTML=`
+    <div class="view-meta-grid">
+      <div class="view-meta-item"><div class="view-meta-label">Employee</div><div class="view-meta-val">${s.name}</div></div>
+      <div class="view-meta-item"><div class="view-meta-label">Department</div><div class="view-meta-val">${s.dept}</div></div>
+      <div class="view-meta-item"><div class="view-meta-label">Date</div><div class="view-meta-val">${dateFmt}</div></div>
+      <div class="view-meta-item"><div class="view-meta-label">Hours Logged</div><div class="view-meta-val">${s.loggedTotal%1===0?s.loggedTotal:s.loggedTotal.toFixed(1)}h <span style="font-size:12px;color:var(--muted)">/ ${s.totalHours}h expected</span></div></div>
+      <div class="view-meta-item"><div class="view-meta-label">Work Status</div><div class="view-meta-val"><span class="badge ${meta.cls}"><span class="badge-dot"></span>${meta.label}</span></div></div>
+      <div class="view-meta-item"><div class="view-meta-label">Approval</div><div class="view-meta-val">${apprEl}</div></div>
+    </div>
+    ${s.summary?`<div style="margin-bottom:8px"><div class="view-tasks-label">Summary / Notes</div><div class="view-summary-box">${s.summary}</div></div>`:''}
+    <div class="view-tasks-label">Activities (${s.tasks.length})</div>
+    ${tasksHTML}
+    <div style="margin-top:12px;padding-top:10px;border-top:0.5px solid var(--border);font-size:11px;color:var(--muted);text-align:right">Submitted ${fmtSubmitTime(s.submittedAt)}</div>
+  `;
+  document.getElementById('viewModal').classList.add('show');
+}
+function closeViewModal(){document.getElementById('viewModal').classList.remove('show');}
+
+// ── NAV ───────────────────────────────────────────────────
+function showView(v){
+  document.getElementById('formView').classList.toggle('visible',v==='form');
+  document.getElementById('histView').classList.toggle('visible',v==='hist');
+  document.getElementById('dashView').classList.toggle('visible',v==='dash');
+  document.getElementById('approveView').classList.toggle('visible',v==='approve');
+  const labelMap={form:'Submit Output',hist:'My Reports',dash:'Admin Dashboard',approve:'Dept Approvals'};
+  document.querySelectorAll('.nav-btn').forEach(b=>{
+    b.classList.toggle('active', b.textContent.trim()===labelMap[v]);
+  });
+  if(v==='dash') renderDash();
+  if(v==='hist') renderHistory();
+  if(v==='approve') renderApproveView();
+}
+
+function showToast(msg,type){
+  const t=document.getElementById('toast');
+  document.getElementById('toastMsg').textContent=msg;
+  t.style.background=type==='error'?'#ef4444':'var(--brand)';
+  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);
+}
+</script>
+</body>
+</html>
