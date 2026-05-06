@@ -162,6 +162,7 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
 .user-card-count{font-size:11px;color:var(--brand);margin-top:2px}
 
 .depthead-badge{background:#ede9fe;color:#5b21b6;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;border:0.5px solid #c4b5fd}
+.exec-badge{background:#fff0e6;color:#c2410c;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;border:0.5px solid #fdba74}
 .badge-approved{background:#dcfce7;color:#166534}
 .badge-rejected{background:#fee2e2;color:#991b1b}
 .badge-pending{background:#f3f4f6;color:#6b7280}
@@ -255,8 +256,10 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
 .users-filter-btn{padding:4px 11px;border-radius:6px;border:0.5px solid var(--border);background:transparent;cursor:pointer;font-size:12px;font-weight:500;font-family:'DM Sans',sans-serif;color:var(--muted);transition:all 0.15s}
 .users-filter-btn.active{background:var(--brand-light);border-color:var(--brand-mid);color:var(--brand)}
 .user-card-role{font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;display:inline-block;margin-top:2px}
+.role-chip.exec-sel.selected{background:#fff0e6;border-color:#fdba74;color:#c2410c}
 .role-admin{background:#fef3c7;color:#92400e;border:0.5px solid #fde68a}
 .role-depthead{background:#ede9fe;color:#5b21b6;border:0.5px solid #c4b5fd}
+.role-exec{background:#fff0e6;color:#c2410c;border:0.5px solid #fdba74}
 .role-user{background:#f3f4f6;color:#4b5563;border:0.5px solid #d1d5db}
 .btn-remove-user{background:transparent;border:none;cursor:pointer;color:#d1d5db;font-size:14px;padding:2px;line-height:1;margin-left:auto;transition:color 0.15s;flex-shrink:0}
 .btn-remove-user:hover{color:#ef4444}
@@ -340,6 +343,7 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
       <button class="nav-btn" onclick="showView('hist')">My Reports</button>
       <button class="nav-btn admin-only" onclick="showView('dash')" style="display:none">Admin Dashboard</button>
       <button class="nav-btn depthead-only" onclick="showView('approve')" style="display:none">Dept Approvals</button>
+      <button class="nav-btn exec-only" onclick="showView('execApprove')" style="display:none">Executive Review</button>
     </div>
     <div class="topbar-right">
       <span class="sync-status" id="syncStatus"><span class="sync-dot syncing"></span> Connecting…</span>
@@ -351,6 +355,7 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
         </div>
         <span class="admin-badge" id="adminBadge" style="display:none">ADMIN</span>
         <span class="depthead-badge" id="deptheadBadge" style="display:none">DEPT HEAD</span>
+        <span class="exec-badge" id="execBadge" style="display:none">EXECUTIVE</span>
       </div>
       <button class="btn-logout" onclick="doLogout()">Sign out</button>
     </div>
@@ -486,6 +491,47 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
       </div>
     </div>
 
+    <!-- ── EXECUTIVE REVIEW VIEW ── -->
+    <div class="approve-view exec-view" id="execApproveView">
+      <div class="dh-stats">
+        <div class="stat-card">
+          <div class="stat-label">Pending Executive Review</div>
+          <div class="stat-val" id="execPendingCount" style="color:#854d0e">0</div>
+          <div class="stat-sub">Dept-head approved, awaiting exec</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Exec Approved</div>
+          <div class="stat-val" id="execApprovedCount" style="color:#166534">0</div>
+          <div class="stat-sub">Final approval given</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Exec Rejected</div>
+          <div class="stat-val" id="execRejectedCount" style="color:#991b1b">0</div>
+          <div class="stat-sub">Returned to employee</div>
+        </div>
+      </div>
+      <div class="approve-card">
+        <div class="approve-header">
+          <h3>All Department Outputs — Executive Review</h3>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span class="exec-badge" style="font-size:11px;padding:3px 10px;border-radius:20px">All Departments</span>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="appr-filter-btn active" onclick="filterExecApprove('dh_approved',this)">Awaiting Review</button>
+              <button class="appr-filter-btn" onclick="filterExecApprove('exec_approved',this)">Exec Approved</button>
+              <button class="appr-filter-btn" onclick="filterExecApprove('exec_rejected',this)">Exec Rejected</button>
+              <button class="appr-filter-btn" onclick="filterExecApprove('all',this)">All</button>
+            </div>
+          </div>
+        </div>
+        <table class="sub-table">
+          <thead>
+            <tr><th>Employee</th><th>Dept</th><th>Date</th><th>Total Hours</th><th>Activities</th><th>Work Status</th><th>Dept Approval</th><th>Exec Approval</th><th>Submitted At</th><th>Action</th></tr>
+          </thead>
+          <tbody id="execApproveTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- ── ADMIN DASHBOARD ── -->
     <div class="dash-view" id="dashView">
       <!-- stats -->
@@ -559,7 +605,10 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
         </div>
         <!-- Company Info Panel -->
         <div class="panel">
-          <div class="panel-head">🏛️ Company Information</div>
+          <div class="panel-head" style="display:flex;align-items:center;justify-content:space-between">
+            <span>🏛️ Company Information</span>
+            <button onclick="openCompanyModal(null)" style="background:var(--brand);color:white;border:none;padding:5px 13px;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif">+ Add Company</button>
+          </div>
           <div class="panel-body" id="companyInfoBody"></div>
         </div>
       </div>
@@ -573,6 +622,7 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
               <button class="users-filter-btn active" onclick="filterUsers('all',this)">All</button>
               <button class="users-filter-btn" onclick="filterUsers('admin',this)">Admin</button>
               <button class="users-filter-btn" onclick="filterUsers('depthead',this)">Dept Heads</button>
+              <button class="users-filter-btn" onclick="filterUsers('executive',this)">Executives</button>
               <button class="users-filter-btn" onclick="filterUsers('user',this)">Employees</button>
               <select id="userDeptFilter" onchange="filterUsers(currentUserFilter)" style="font-size:12px;padding:4px 8px;border-radius:6px;border:0.5px solid var(--border);background:var(--bg);color:var(--muted);font-family:'DM Sans',sans-serif;cursor:pointer">
                 <option value="">All Depts</option>
@@ -581,11 +631,6 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
               </select>
               <select id="userCompanyFilter" onchange="renderUsersGrid()" style="font-size:12px;padding:4px 8px;border-radius:6px;border:0.5px solid var(--border);background:var(--bg);color:var(--muted);font-family:'DM Sans',sans-serif;cursor:pointer">
                 <option value="">All Companies</option>
-                <option value="Primary School Foundation, Inc.">Primary School Foundation</option>
-                <option value="PSI">PSI</option>
-                <option value="PSEFI">PSEFI</option>
-                <option value="COOP">COOP</option>
-                <option value="Other">Other</option>
               </select>
             </div>
             <button class="btn-add-user" onclick="openAddUserModal()">
@@ -655,14 +700,7 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
         </div>
         <div class="form-group" style="grid-column:1/-1">
           <label>Company <span style="color:#ef4444">*</span></label>
-          <select id="regCompany">
-            <option value="">— Select Company —</option>
-            <option value="Primary School Foundation, Inc.">Primary School Foundation, Inc.</option>
-            <option value="PSI">PSI</option>
-            <option value="PSEFI">PSEFI</option>
-            <option value="COOP">COOP</option>
-            <option value="Other">Other</option>
-          </select>
+          <select id="regCompany"><option value="">— Select Company —</option></select>
         </div>
         <div class="form-group">
           <label>Password <span style="color:#ef4444">*</span></label>
@@ -715,6 +753,50 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
   </div>
 </div>
 
+<!-- Exec Reject reason modal -->
+<div class="modal-overlay" id="execRejectModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h4>Executive Reject Report</h4>
+      <button class="modal-close" onclick="closeExecRejectModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <label>Reason for rejection (optional)</label>
+      <textarea id="execRejectReason" placeholder="Enter reason…"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="closeExecRejectModal()">Cancel</button>
+      <button class="btn-modal-confirm reject" onclick="confirmExecReject()">Reject Report</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit User Role Modal -->
+<div class="modal-overlay" id="editRoleModal">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-head" style="background:var(--brand-light);border-bottom:0.5px solid var(--brand-mid)">
+      <h4 style="color:var(--brand)">Edit User Role</h4>
+      <button class="modal-close" onclick="closeEditRoleModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="editRoleUserName" style="font-size:14px;font-weight:500;color:var(--text);margin-bottom:12px"></p>
+      <label style="font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:8px">Assign Role</label>
+      <div class="role-select-group">
+        <button class="role-chip selected" id="editRoleChipUser" onclick="selectEditRole('user')">👤 Employee</button>
+        <button class="role-chip depthead-sel" id="editRoleChipDepthead" onclick="selectEditRole('depthead')">🏢 Dept Head</button>
+        <button class="role-chip exec-sel" id="editRoleChipExecutive" onclick="selectEditRole('executive')">🎖️ Executive</button>
+      </div>
+      <input type="hidden" id="editRoleValue" value="user"/>
+      <input type="hidden" id="editRoleUsername" value=""/>
+      <div id="editRoleError" style="font-size:13px;color:#dc2626;background:#fef2f2;border:0.5px solid #fca5a5;padding:8px 12px;border-radius:7px;margin-top:10px;display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="closeEditRoleModal()">Cancel</button>
+      <button class="btn-modal-confirm" onclick="confirmEditRole()">Save Role</button>
+    </div>
+  </div>
+</div>
+
 <!-- Add User Modal -->
 <div class="modal-overlay" id="addUserModal">
   <div class="modal add-user-modal">
@@ -742,14 +824,7 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
         </div>
         <div class="form-group" style="grid-column:1/-1">
           <label>Company</label>
-          <select id="addUserCompany">
-            <option value="">— Select Company —</option>
-            <option value="Primary School Foundation, Inc.">Primary School Foundation, Inc.</option>
-            <option value="PSI">PSI</option>
-            <option value="PSEFI">PSEFI</option>
-            <option value="COOP">COOP</option>
-            <option value="Other">Other</option>
-          </select>
+          <select id="addUserCompany"><option value="">— Select Company —</option></select>
         </div>
         <div class="form-group">
           <label>Password <span style="color:#ef4444">*</span></label>
@@ -760,6 +835,7 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
           <div class="role-select-group">
             <button class="role-chip selected" id="roleChipUser" onclick="selectRole('user')">👤 Employee</button>
             <button class="role-chip depthead-sel" id="roleChipDepthead" onclick="selectRole('depthead')">🏢 Dept Head</button>
+            <button class="role-chip exec-sel" id="roleChipExecutive" onclick="selectRole('executive')">🎖️ Executive</button>
             <button class="role-chip admin-sel" id="roleChipAdmin" onclick="selectRole('admin')">⚙️ Admin</button>
           </div>
           <input type="hidden" id="addUserRole" value="user"/>
@@ -781,67 +857,6 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
 // Add/edit users here. role: 'admin' or 'user'
 const ACCOUNTS = [
 {username:'00001174', password:'welcome', role:'admin',  displayName:'YANGCO, JOHN MICHAEL P.',  dept:'HR'},
-{username:'00001766', password:'welcome', role:'admin',  displayName:'SELLOTE, PATRESS D.',  dept:'HR'},
-{username:'PS003887', password:'welcome', role:'admin',  displayName:'GONZAGA, KARL ANTHONY G.',  dept:'PSEFI'},
-{username:'PS000092', password:'welcome',  role:'depthead',   displayName:'CUBIJANO, JESSIE M.', dept:'SKILLS'},
-{username:'PS000124', password:'primary.com',  role:'user', displayName:'AYING, JOY F.', dept: 'SKILLS'},
-{username:'PS000129', password:'primary.com',  role:'user', displayName:'BANTACULO, JAMESMAE A.', dept:'SHS'},
-{username:'PS000149', password:'primary.com',  role:'user', displayName:'BARIQUIT, ANTONETTE J.', dept:'SKILLS'},
-{username:'PS000125', password:'primary.com',  role:'depthead', displayName:'ABENTULAN, IDA C.', dept:'SEAMAN'},
-{username:'PS003894', password:'primary.com',  role:'user', displayName:'BILLERAN, STEPHANY IRISH O.', dept:'SKILLS'},
-{username:'PS000122', password:'primary.com',  role:'user', displayName:'BITOON, CLAMEL E.', dept:'SKILLS'},
-{username:'PS000150', password:'primary.com',  role:'user', displayName:'BOTE, MARYNEIL ..', dept:'SEAMAN'},
-{username:'PS000144', password:'primary.com',  role:'user', displayName:'CABALLES, JOY V.', dept:'SKILLS'},
-{username:'PS003895', password:'primary.com',  role:'user', displayName:'CABALONA, MYKA ANGELA J.', dept:'SKILLS'},
-{username:'PS003900', password:'primary.com',  role:'user', displayName:'CABURNAY, TRISSHA PEARL S.', dept:'SKILLS'},
-{username:'PS003889', password:'primary.com',  role:'user', displayName:'CABUSAS, ROGER J.', dept:'SKILLS'},
-{username:'PS003897', password:'primary.com',  role:'user', displayName:'CARNICE, JONATHAN T.', dept:'SKILLS'},
-{username:'PS000090', password:'primary.com',  role:'user', displayName:'CASQUEJO, KIRBY R.', dept:'SHS'},
-{username:'PS000132', password:'primary.com',  role:'user', displayName:'CATAYOC, MA. THERESA M.', dept:'SHS'},
-{username:'PS003891', password:'primary.com',  role:'user', displayName:'ERAS, KERSLEY JANE D.', dept:'SKILLS'},
-{username:'PS000094', password:'primary.com',  role:'user', displayName:'GALDONES, JOSE ROY J.', dept:'SKILLS'},
-{username:'PS009336', password:'primary.com',  role:'depthead', displayName:'GAMAO, ROVILLA H.', dept:'SKILLS'},
-{username:'PS000141', password:'primary.com',  role:'user', displayName:'HORTILANO, RAYIAN ..', dept:'SKILLS'},
-{username:'PS000108', password:'primary.com',  role:'user', displayName:'JABIERTO, NIESAN M.', dept:'SKILLS'},
-{username:'PS000130', password:'primary.com',  role:'user', displayName:'JO, JOHN CHRIS B..', dept:'SHS'},
-{username:'PS012268', password:'primary.com',  role:'depthead', displayName:'LIPNICA, MAYLINE L.', dept:'SKILLS'},
-{username:'PS003840', password:'primary.com',  role:'user', displayName:'MANABAT, MARBEN C.', dept:'SKILLS'},
-{username:'PS000145', password:'primary.com',  role:'user', displayName:'MIÑOZA, KENDRICK REY A.', dept:'SHS'},
-{username:'PS000059', password:'primary.com',  role:'user', displayName:'PARAGOSO, AGNES I.', dept:'SKILLS'},
-{username:'PS003890', password:'primary.com',  role:'user', displayName:'PAREDES, CHRIS DIEGO A.', dept:'SKILLS'},
-{username:'PS003902', password:'primary.com',  role:'user', displayName:'RABAGO, DANNY DAVE C.', dept:'SKILLS'},
-{username:'PS000062', password:'primary.com',  role:'depthead', displayName:'RAZ, EUNICE B.', dept:'SHS'},
-{username:'PS000086', password:'primary.com',  role:'user', displayName:'ROMALES, MYRA CARLA T.', dept:'SKILLS'},
-{username:'PS000128', password:'primary.com',  role:'user', displayName:'SARTE, EDELYN R.', dept:'SHS'},
-{username:'PS000134', password:'primary.com',  role:'user', displayName:'SENON, SHAZNEE IYN M.', dept:'SHS'},
-{username:'PS000119', password:'primary.com',  role:'user', displayName:'SUAN, NIÑA CHARISSE N.', dept:'SHS'},
-{username:'PS003893', password:'primary.com',  role:'user', displayName:'TABEL, REY CHRISTOPHER T.', dept:'SKILLS'},
-{username:'PS000142', password:'primary.com',  role:'user', displayName:'TALLO, ARA MARIE ..', dept:'SHS'},
-{username:'PS000056', password:'primary.com',  role:'user', displayName:'TOLEDO, MITZIEL D.', dept:'SHS'},
-{username:'PS003892', password:'primary.com',  role:'user', displayName:'TOÑACAO, ANTHONY N.', dept:'SKILLS'},
-{username:'PS000055', password:'primary.com',  role:'user', displayName:'VILLEGAS, MERRY GRACE T.', dept:'SKILLS'},
-{username:'PS003898', password:'primary.com',  role:'user', displayName:'BATUCAN, REX R.', dept:'SEAMAN'},
-{username:'PS003899', password:'primary.com',  role:'user', displayName:'GARCIA, CHRISTOPHER C.', dept:'SEAMAN'},
-{username:'SI001362', password:'primary.com',  role:'depthead', displayName:'ALBAÑA, MA. ASHLYN M.', dept:'PSI'},
-{username:'SI001717', password:'primary.com',  role:'user', displayName:'ALEMAÑO, RIZA L.', dept:'PSI'},
-{username:'SI001445', password:'primary.com',  role:'user', displayName:'BANGCAL, ROMALD T.', dept:'PSI'},
-{username:'SI001015', password:'primary.com',  role:'user', displayName:'BENABENTE, ANNA LOU A.', dept:'PSI'},
-{username:'SI001715', password:'primary.com',  role:'user', displayName:'DY, JESSA MAE R.', dept:'PSI'},
-{username:'SI001407', password:'primary.com',  role:'user', displayName:'ESTANISLAO, CINDY C.', dept:'PSI'},
-{username:'SI001451', password:'primary.com',  role:'user', displayName:'ESTILOGA, JANICE G.', dept:'PSI'},
-{username:'SI001716', password:'primary.com',  role:'user', displayName:'GARRATE, ROSALINA O.', dept:'PSI'},
-{username:'SI001448', password:'primary.com',  role:'user', displayName:'LOMPOT, CHARLENE E.', dept:'PSI'},
-{username:'SI001444', password:'primary.com',  role:'user', displayName:'PANTOLLANA, SONNY C.', dept:'PSI'},
-{username:'SI001734', password:'primary.com',  role:'user', displayName:'QUIJOTE, JULIDY S.', dept:'PSI'},
-{username:'SI001735', password:'primary.com',  role:'user', displayName:'SABANDAL, GLEEN P.', dept:'PSI'},
-{username:'SI001431', password:'primary.com',  role:'user', displayName:'SAMAL, MELBA C.', dept:'PSI'},
-{username:'SI001453', password:'primary.com',  role:'user', displayName:'SANTIAGO, JR., NOEL A.', dept:'PSI'},
-{username:'SI011737', password:'primary.com',  role:'user', displayName:'ZAMBO, IRENE O.', dept:'PSI'},
-{username:'00001749', password:'primary.com',  role:'depthead', displayName:'QUILO, JACILDA S.', dept:'COOP'},
-{username:'00001775', password:'primary.com',  role:'user', displayName:'ASEHAN, PATHRICK S.', dept:'COOP'},
-{username:'00001902', password:'primary.com',  role:'user', displayName:'MONTEMAYOR, MARIETTA ANNE V.', dept:'COOP'},
-{username:'PS000139', password:'primary.com',  role:'user', displayName:'OLAGUIR, JEAN NINE G.', dept:'PSEFI'},
-{username:'PS000109', password:'primary.com',  role:'user', displayName:'ABALOS, ELOISA MARIE P.', dept:'SHS'},
 
 ];
 
@@ -859,8 +874,7 @@ const CAT_BG = {
 const AVATAR_COLORS = ['#1a6b5c','#2563eb','#7c3aed','#dc2626','#ea580c','#0891b2'];
 
 // ── PERSISTENT SHARED STORAGE ─────────────────────────────
-// Uses window.storage (shared: true) so ALL users see the same data
-// regardless of what browser/device they use.
+// Uses localStorage so all data persists across page refreshes in the same browser.
 const STORAGE_KEY = 'worklog_submissions_v2';
 const REG_KEY = 'worklog_reg_requests_v1';
 const DEPT_KEY = 'worklog_departments_v1';
@@ -885,26 +899,26 @@ if(_bc){
 
 async function loadSubmissions(){
   try{
-    const res = await window.storage.get(STORAGE_KEY, true);
+    const raw = localStorage.getItem(STORAGE_KEY); const res = raw ? { value: raw } : null;
     return res ? JSON.parse(res.value) : [];
   }catch(e){ return []; }
 }
 async function saveSubmissions(){
   try{
-    await window.storage.set(STORAGE_KEY, JSON.stringify(submissions), true);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(submissions));
     broadcastChange('submissions');
     updateSyncIndicator('saved');
   }catch(e){ updateSyncIndicator('error'); }
 }
 async function loadRegRequests(){
   try{
-    const res = await window.storage.get(REG_KEY, true);
+    const raw = localStorage.getItem(REG_KEY); const res = raw ? { value: raw } : null;
     return res ? JSON.parse(res.value) : [];
   }catch(e){ return []; }
 }
 async function saveRegRequests(){
   try{
-    await window.storage.set(REG_KEY, JSON.stringify(regRequests), true);
+    localStorage.setItem(REG_KEY, JSON.stringify(regRequests));
     broadcastChange('regRequests');
   }catch(e){}
 }
@@ -915,33 +929,64 @@ let departments = [...DEFAULT_DEPTS];
 
 async function loadDepartments(){
   try{
-    const res = await window.storage.get(DEPT_KEY, true);
+    const raw = localStorage.getItem(DEPT_KEY); const res = raw ? { value: raw } : null;
     return res ? JSON.parse(res.value) : [...DEFAULT_DEPTS];
   }catch(e){ return [...DEFAULT_DEPTS]; }
 }
 async function saveDepartments(){
   try{
-    await window.storage.set(DEPT_KEY, JSON.stringify(departments), true);
+    localStorage.setItem(DEPT_KEY, JSON.stringify(departments));
     broadcastChange('departments');
     populateAllDeptSelects();
   }catch(e){}
 }
 
-// ── COMPANY INFO ─────────────────────────────────────────
+// ── COMPANY INFO (multi-company array) ───────────────────
 let companyInfo = { name: 'Primary School Foundation, Inc.', address: '', email: '', phone: '', logo: '' };
+let companies = [];
 
 async function loadCompanyInfo(){
   try{
-    const res = await window.storage.get(COMPANY_KEY, true);
-    return res ? JSON.parse(res.value) : { name: 'Primary School Foundation, Inc.', address: '', email: '', phone: '', logo: '' };
+    const raw = localStorage.getItem(COMPANY_KEY); const res = raw ? { value: raw } : null;
+    if(!res) return { name: 'Primary School Foundation, Inc.', address: '', email: '', phone: '', logo: '' };
+    const parsed = JSON.parse(res.value);
+    if(Array.isArray(parsed)){ companies = parsed; return parsed[0] || { name:'', address:'', email:'', phone:'', logo:'' }; }
+    return parsed;
   }catch(e){ return { name: 'Primary School Foundation, Inc.', address: '', email: '', phone: '', logo: '' }; }
 }
-async function saveCompanyInfo(){
+async function loadCompanies(){
   try{
-    await window.storage.set(COMPANY_KEY, JSON.stringify(companyInfo), true);
+    const raw = localStorage.getItem(COMPANY_KEY); const res = raw ? { value: raw } : null;
+    if(!res) return [];
+    const parsed = JSON.parse(res.value);
+    if(Array.isArray(parsed)) return parsed;
+    if(parsed && parsed.name) return [{ id: 'mig_'+Date.now(), name:parsed.name, email:parsed.email||'', phone:parsed.phone||'', address:parsed.address||'' }];
+    return [];
+  }catch(e){ return []; }
+}
+async function saveCompanies(){
+  try{
+    localStorage.setItem(COMPANY_KEY, JSON.stringify(companies));
     broadcastChange('company');
     renderCompanyPanel();
+    populateAllCompanySelects();
   }catch(e){}
+}
+async function saveCompanyInfo(){
+  await saveCompanies();
+}
+
+function populateAllCompanySelects(){
+  const opts = companies.map(c=>`<option value="${c.name}">${c.name}</option>`).join('');
+  // Registration modal
+  const rc = document.getElementById('regCompany');
+  if(rc){ const p=rc.value; rc.innerHTML=`<option value="">— Select Company —</option>${opts}`; if([...rc.options].some(o=>o.value===p)) rc.value=p; }
+  // Add User modal
+  const ac = document.getElementById('addUserCompany');
+  if(ac){ const p=ac.value; ac.innerHTML=`<option value="">— Select Company —</option>${opts}`; if([...ac.options].some(o=>o.value===p)) ac.value=p; }
+  // Users filter
+  const uf = document.getElementById('userCompanyFilter');
+  if(uf){ const p=uf.value; uf.innerHTML=`<option value="">All Companies</option>${opts}`; if([...uf.options].some(o=>o.value===p)) uf.value=p; }
 }
 
 function populateAllDeptSelects(){
@@ -994,15 +1039,17 @@ async function syncFromServer(silent){
   isSyncing = true;
   if(!silent) updateSyncIndicator('syncing');
   try{
-    const [newSubs, newRegs, newDynUsers, newDepts, newCompany] = await Promise.all([
-      loadSubmissions(), loadRegRequests(), loadDynamicUsers(), loadDepartments(), loadCompanyInfo()
+    const [newSubs, newRegs, newDynUsers, newDepts, newCompany, newCompanies] = await Promise.all([
+      loadSubmissions(), loadRegRequests(), loadDynamicUsers(), loadDepartments(), loadCompanyInfo(), loadCompanies()
     ]);
     submissions = newSubs;
     regRequests = newRegs;
     dynamicUsers = newDynUsers;
     departments = newDepts;
     companyInfo = newCompany;
+    companies = newCompanies;
     populateAllDeptSelects();
+    populateAllCompanySelects();
     // Re-render whatever view is active
     if(currentUser){
       if(currentUser.role==='admin'){
@@ -1015,6 +1062,9 @@ async function syncFromServer(silent){
       } else if(currentUser.role==='depthead'){
         const approveVisible = document.getElementById('approveView')?.classList.contains('visible');
         if(approveVisible) renderApproveView();
+      } else if(currentUser.role==='executive'){
+        const execVisible = document.getElementById('execApproveView')?.classList.contains('visible');
+        if(execVisible) renderExecApproveView();
       } else {
         const histVisible = document.getElementById('histView')?.classList.contains('visible');
         if(histVisible) renderHistory();
@@ -1049,8 +1099,10 @@ let pendingRejectId = null;
     [submissions, regRequests, dynamicUsers, departments, companyInfo] = await Promise.all([
       loadSubmissions(), loadRegRequests(), loadDynamicUsers(), loadDepartments(), loadCompanyInfo()
     ]);
-  } catch(e){ submissions=[]; regRequests=[]; dynamicUsers=[]; departments=[...DEFAULT_DEPTS]; companyInfo={name:'Primary School Foundation, Inc.',address:'',email:'',phone:'',logo:''}; }
+    companies = await loadCompanies();
+  } catch(e){ submissions=[]; regRequests=[]; dynamicUsers=[]; departments=[...DEFAULT_DEPTS]; companyInfo={name:'Primary School Foundation, Inc.',address:'',email:'',phone:'',logo:''}; companies=[]; }
   populateAllDeptSelects();
+  populateAllCompanySelects();
   // Hide loading overlay and show login
   const overlay = document.getElementById('loadingOverlay');
   if(overlay) overlay.style.display='none';
@@ -1112,12 +1164,14 @@ function setupUserUI(){
   const initials = u.displayName.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
   document.getElementById('topAvatar').textContent = initials;
   document.getElementById('topName').textContent = u.displayName;
-  const roleLabel = u.role==='admin'?'Administrator':u.role==='depthead'?'Department Head':'Employee';
+  const roleLabel = u.role==='admin'?'Administrator':u.role==='depthead'?'Department Head':u.role==='executive'?'Executive':'Employee';
   document.getElementById('topRole').textContent = roleLabel;
   document.getElementById('adminBadge').style.display = u.role==='admin' ? '' : 'none';
   document.getElementById('deptheadBadge').style.display = u.role==='depthead' ? '' : 'none';
+  document.getElementById('execBadge').style.display = u.role==='executive' ? '' : 'none';
   document.querySelectorAll('.admin-only').forEach(el=>el.style.display = u.role==='admin' ? '' : 'none');
   document.querySelectorAll('.depthead-only').forEach(el=>el.style.display = u.role==='depthead' ? '' : 'none');
+  document.querySelectorAll('.exec-only').forEach(el=>el.style.display = u.role==='executive' ? '' : 'none');
 }
 
 // ── APP INIT ──────────────────────────────────────────────
@@ -1134,6 +1188,7 @@ function initApp(){
   taskCount=0; addTask(); addTask();
   if(currentUser.role==='admin') showView('dash');
   else if(currentUser.role==='depthead') showView('approve');
+  else if(currentUser.role==='executive') showView('execApprove');
   else showView('form');
 }
 
@@ -1480,8 +1535,103 @@ async function confirmReject(){
   closeRejectModal();
 }
 
+// ── EXECUTIVE APPROVAL ────────────────────────────────────
+let currentExecFilter = 'dh_approved';
+
+function filterExecApprove(f, btn){
+  currentExecFilter = f;
+  document.querySelectorAll('#execApproveView .appr-filter-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  renderExecApproveTable();
+}
+
+function renderExecApproveView(){
+  if(currentUser?.role !== 'executive') return;
+  const all = submissions;
+  document.getElementById('execPendingCount').textContent = all.filter(s=>s.approval==='approved' && (s.execApproval||'pending')==='pending').length;
+  document.getElementById('execApprovedCount').textContent = all.filter(s=>s.execApproval==='exec_approved').length;
+  document.getElementById('execRejectedCount').textContent = all.filter(s=>s.execApproval==='exec_rejected').length;
+  renderExecApproveTable();
+}
+
+function renderExecApproveTable(){
+  const body = document.getElementById('execApproveTableBody');
+  let list = submissions;
+  if(currentExecFilter === 'dh_approved'){
+    list = list.filter(s => s.approval === 'approved' && (s.execApproval||'pending') === 'pending');
+  } else if(currentExecFilter === 'exec_approved'){
+    list = list.filter(s => s.execApproval === 'exec_approved');
+  } else if(currentExecFilter === 'exec_rejected'){
+    list = list.filter(s => s.execApproval === 'exec_rejected');
+  }
+  if(!list.length){ body.innerHTML=`<tr><td colspan="10" class="no-data">No submissions found</td></tr>`; return; }
+  const sm={done:{label:'Completed',cls:'badge-done'},progress:{label:'In Progress',cls:'badge-progress'},blocked:{label:'Blocked',cls:'badge-blocked'}};
+  body.innerHTML = list.map(s=>{
+    const initials=s.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    const col=AVATAR_COLORS[s.name.length%AVATAR_COLORS.length];
+    const meta=sm[s.status]||sm.done;
+    const dateFmt=new Date(s.date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    const tagsHTML=s.tasks.slice(0,3).map(t=>`<span class="hrs-tag" style="background:${CAT_BG[t.cat]||'#f3f4f6'};color:${CAT_COLORS[t.cat]||'#374151'}">${t.cat} ${t.hrs%1===0?t.hrs:t.hrs.toFixed(1)}h</span>`).join('');
+    const dhAppr = s.approval||'pending';
+    const dhApprEl = dhAppr==='approved'?`<span class="approval-status-approved">✓ Approved</span>${s.approvedBy?`<div style="font-size:10px;color:var(--muted)">by ${s.approvedBy}</div>`:''}`
+      :dhAppr==='rejected'?`<span class="approval-status-rejected">✕ Rejected</span>`
+      :`<span class="approval-status-pending">⏳ Pending</span>`;
+    const ea = s.execApproval||'pending';
+    const execApprEl = ea==='exec_approved'?`<span class="approval-status-approved">✓ Exec Approved</span>${s.execApprovedBy?`<div style="font-size:10px;color:var(--muted)">by ${s.execApprovedBy}</div>`:''}`
+      :ea==='exec_rejected'?`<span class="approval-status-rejected">✕ Exec Rejected</span>${s.execApprovalNote?`<div style="font-size:10px;color:var(--muted);font-style:italic">${s.execApprovalNote}</div>`:''}`
+      :`<span class="approval-status-pending">⏳ Pending</span>`;
+    const canAct = dhAppr === 'approved' && ea === 'pending';
+    const actionEl = canAct
+      ? `<button class="btn-approve" onclick="execApproveReport('${s.id}')">Approve</button><button class="btn-reject" onclick="openExecRejectModal('${s.id}')">Reject</button> <button class="btn-view" onclick="openViewModal('${s.id}')">View</button>`
+      : `<button class="btn-view" onclick="openViewModal('${s.id}')">View</button>`;
+    return `<tr>
+      <td><div class="emp-cell"><div class="avatar" style="background:${col}22;color:${col}">${initials}</div><span style="font-weight:500">${s.name}</span></div></td>
+      <td style="color:var(--muted)">${s.dept}</td>
+      <td style="color:var(--muted)">${dateFmt}</td>
+      <td><span style="font-weight:600">${s.loggedTotal%1===0?s.loggedTotal:s.loggedTotal.toFixed(1)}h</span><span style="color:var(--muted);font-size:11px"> / ${s.totalHours}h</span></td>
+      <td><div class="hrs-breakdown">${tagsHTML}${s.tasks.length>3?`<span style="font-size:11px;color:var(--muted);padding:2px 4px">+${s.tasks.length-3}</span>`:''}</div></td>
+      <td><span class="badge ${meta.cls}"><span class="badge-dot"></span>${meta.label}</span></td>
+      <td>${dhApprEl}</td>
+      <td>${execApprEl}</td>
+      <td>${fmtSubmitTime(s.submittedAt)}</td>
+      <td>${actionEl}</td>
+    </tr>`;
+  }).join('');
+}
+
+let pendingExecRejectId = null;
+function openExecRejectModal(id){
+  pendingExecRejectId = id;
+  document.getElementById('execRejectReason').value='';
+  document.getElementById('execRejectModal').classList.add('show');
+}
+function closeExecRejectModal(){
+  pendingExecRejectId = null;
+  document.getElementById('execRejectModal').classList.remove('show');
+}
+async function execApproveReport(id){
+  const s = submissions.find(x=>x.id===id);
+  if(!s) return;
+  s.execApproval='exec_approved'; s.execApprovedBy=currentUser.displayName; s.execApprovedAt=new Date().toISOString();
+  updateSyncIndicator('syncing');
+  await saveSubmissions(); renderExecApproveView(); showToast('Report executive-approved!','success');
+}
+async function confirmExecReject(){
+  if(!pendingExecRejectId) return;
+  const s = submissions.find(x=>x.id===pendingExecRejectId);
+  if(s){
+    s.execApproval='exec_rejected'; s.execApprovalNote=document.getElementById('execRejectReason').value.trim();
+    s.execApprovedBy=currentUser.displayName; s.execApprovedAt=new Date().toISOString();
+    updateSyncIndicator('syncing');
+    await saveSubmissions(); renderExecApproveView(); showToast('Report exec-rejected.','error');
+  }
+  closeExecRejectModal();
+}
+
 // ── REGISTRATION MODAL ───────────────────────────────────
 function openRegisterModal(){
+  populateAllCompanySelects();
+  populateAllDeptSelects();
   document.getElementById('regName').value='';
   document.getElementById('regUsername').value='';
   document.getElementById('regDept').value='';
@@ -1580,18 +1730,20 @@ const DYN_USERS_KEY = 'worklog_dynamic_users_v1';
 
 async function loadDynamicUsers(){
   try{
-    const res = await window.storage.get(DYN_USERS_KEY, true);
+    const raw = localStorage.getItem(DYN_USERS_KEY); const res = raw ? { value: raw } : null;
     return res ? JSON.parse(res.value) : [];
   }catch(e){ return []; }
 }
 async function saveDynamicUsers(){
   try{
-    await window.storage.set(DYN_USERS_KEY, JSON.stringify(dynamicUsers), true);
+    localStorage.setItem(DYN_USERS_KEY, JSON.stringify(dynamicUsers));
     broadcastChange('dynamicUsers');
   }catch(e){}
 }
 
 function openAddUserModal(){
+  populateAllCompanySelects();
+  populateAllDeptSelects();
   document.getElementById('addUserName').value='';
   document.getElementById('addUserId').value='';
   document.getElementById('addUserDept').value='';
@@ -1607,8 +1759,9 @@ function closeAddUserModal(){
 }
 function selectRole(r){
   document.getElementById('addUserRole').value=r;
-  ['user','depthead','admin'].forEach(role=>{
-    const chip=document.getElementById('roleChip'+role.charAt(0).toUpperCase()+role.slice(1));
+  ['user','depthead','executive','admin'].forEach(role=>{
+    const id='roleChip'+role.charAt(0).toUpperCase()+role.slice(1);
+    const chip=document.getElementById(id);
     if(chip) chip.classList.toggle('selected', role===r);
   });
 }
@@ -1630,9 +1783,43 @@ async function confirmAddUser(){
   await saveDynamicUsers();
   closeAddUserModal();
   renderDash();
-  showToast(`${name} added as ${role==='admin'?'Admin':role==='depthead'?'Dept Head':'Employee'}.`,'success');
+  showToast(`${name} added as ${role==='admin'?'Admin':role==='depthead'?'Dept Head':role==='executive'?'Executive':'Employee'}.`,'success');
   // Immediate broadcast already handled by saveDynamicUsers; also force local refresh
   await syncFromServer(true);
+}
+
+// ── EDIT USER ROLE ────────────────────────────────────────
+function openEditRoleModal(username){
+  const allUsers=[...ACCOUNTS,...dynamicUsers];
+  const user = allUsers.find(u=>u.username===username);
+  if(!user) return;
+  document.getElementById('editRoleUsername').value = username;
+  document.getElementById('editRoleUserName').textContent = user.displayName + ' (' + username + ')';
+  document.getElementById('editRoleError').style.display='none';
+  selectEditRole(user.role==='admin'?'user':user.role||'user');
+  document.getElementById('editRoleModal').classList.add('show');
+}
+function closeEditRoleModal(){
+  document.getElementById('editRoleModal').classList.remove('show');
+}
+function selectEditRole(r){
+  document.getElementById('editRoleValue').value=r;
+  ['user','depthead','executive'].forEach(role=>{
+    const id='editRoleChip'+role.charAt(0).toUpperCase()+role.slice(1);
+    const chip=document.getElementById(id);
+    if(chip) chip.classList.toggle('selected', role===r);
+  });
+}
+async function confirmEditRole(){
+  const username = document.getElementById('editRoleUsername').value;
+  const newRole = document.getElementById('editRoleValue').value;
+  const user = dynamicUsers.find(u=>u.username===username);
+  if(!user){ document.getElementById('editRoleError').textContent='User not found.'; document.getElementById('editRoleError').style.display='block'; return; }
+  user.role = newRole;
+  await saveDynamicUsers();
+  closeEditRoleModal();
+  renderDash();
+  showToast(`${user.displayName} role updated to ${newRole==='depthead'?'Dept Head':newRole==='executive'?'Executive':'Employee'}.`,'success');
 }
 
 // ── REMOVE DYNAMIC USER ──────────────────────────────────
@@ -1681,40 +1868,79 @@ async function removeDept(name){
 }
 
 // ── COMPANY INFO PANEL ────────────────────────────────────
+function escH(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
 function renderCompanyPanel(){
   const el = document.getElementById('companyInfoBody');
   if(!el) return;
-  el.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div class="form-group" style="grid-column:1/-1">
-        <label style="font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Company Name</label>
-        <input type="text" id="cmpName" value="${companyInfo.name||''}" placeholder="e.g. Primary School Foundation, Inc." style="width:100%;font-family:'DM Sans',sans-serif;font-size:14px;padding:9px 12px;border:0.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);outline:none"/>
+  if(!companies.length){
+    el.innerHTML = `<div style="font-size:13px;color:var(--muted);font-style:italic;padding:4px 0 10px">No companies added yet.</div>`;
+    return;
+  }
+  el.innerHTML = companies.map((c,i) => `
+    <div style="border:0.5px solid var(--border);border-radius:9px;padding:11px 13px;margin-bottom:8px;background:var(--bg)">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px">${escH(c.name)}</div>
+          ${c.email ? `<div style="font-size:12px;color:var(--muted)">✉ ${escH(c.email)}</div>` : ''}
+          ${c.phone ? `<div style="font-size:12px;color:var(--muted)">📞 ${escH(c.phone)}</div>` : ''}
+          ${c.address ? `<div style="font-size:12px;color:var(--muted)">📍 ${escH(c.address)}</div>` : ''}
+        </div>
+        <div style="display:flex;gap:5px;flex-shrink:0">
+          <button onclick="openCompanyModal('${c.id}')" style="background:var(--brand-light);color:var(--brand);border:0.5px solid var(--brand-mid);padding:4px 10px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif">✏️ Edit</button>
+          <button onclick="deleteCompany('${c.id}')" style="background:#fee2e2;color:#991b1b;border:0.5px solid #fca5a5;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif">🗑</button>
+        </div>
       </div>
-      <div class="form-group">
-        <label style="font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Email</label>
-        <input type="text" id="cmpEmail" value="${companyInfo.email||''}" placeholder="info@company.com" style="width:100%;font-family:'DM Sans',sans-serif;font-size:14px;padding:9px 12px;border:0.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);outline:none"/>
-      </div>
-      <div class="form-group">
-        <label style="font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Phone</label>
-        <input type="text" id="cmpPhone" value="${companyInfo.phone||''}" placeholder="+63 2 XXXX XXXX" style="width:100%;font-family:'DM Sans',sans-serif;font-size:14px;padding:9px 12px;border:0.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);outline:none"/>
-      </div>
-      <div class="form-group" style="grid-column:1/-1">
-        <label style="font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Address</label>
-        <input type="text" id="cmpAddress" value="${companyInfo.address||''}" placeholder="Street, City, Province" style="width:100%;font-family:'DM Sans',sans-serif;font-size:14px;padding:9px 12px;border:0.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);outline:none"/>
-      </div>
-    </div>
-    <div style="margin-top:12px;display:flex;justify-content:flex-end">
-      <button onclick="saveCompanyEdits()" style="background:var(--brand);color:white;border:none;padding:9px 20px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif">Save Company Info</button>
-    </div>`;
+    </div>`).join('');
 }
 
-async function saveCompanyEdits(){
-  companyInfo.name    = document.getElementById('cmpName')?.value.trim()    || companyInfo.name;
-  companyInfo.email   = document.getElementById('cmpEmail')?.value.trim()   || '';
-  companyInfo.phone   = document.getElementById('cmpPhone')?.value.trim()   || '';
-  companyInfo.address = document.getElementById('cmpAddress')?.value.trim() || '';
-  await saveCompanyInfo();
-  showToast('Company info saved.','success');
+// ── COMPANY MODAL ─────────────────────────────────────────
+let _editingCompanyId = null;
+
+function openCompanyModal(id){
+  _editingCompanyId = id || null;
+  const c = id ? companies.find(x=>x.id===id) : null;
+  const modal = document.getElementById('companyModal');
+  document.getElementById('companyModalTitle').textContent = c ? 'Edit Company' : 'Add Company';
+  document.getElementById('cmpModalError').style.display = 'none';
+  // Set fields via JS — never via HTML attribute — so typing is never blocked
+  document.getElementById('cmpModalName').value    = c ? c.name    : '';
+  document.getElementById('cmpModalEmail').value   = c ? c.email   : '';
+  document.getElementById('cmpModalPhone').value   = c ? c.phone   : '';
+  document.getElementById('cmpModalAddress').value = c ? c.address : '';
+  modal.classList.add('show');
+  setTimeout(()=>document.getElementById('cmpModalName').focus(), 80);
+}
+
+function closeCompanyModal(){
+  document.getElementById('companyModal').classList.remove('show');
+  _editingCompanyId = null;
+}
+
+async function saveCompanyModal(){
+  const name    = document.getElementById('cmpModalName').value.trim();
+  const email   = document.getElementById('cmpModalEmail').value.trim();
+  const phone   = document.getElementById('cmpModalPhone').value.trim();
+  const address = document.getElementById('cmpModalAddress').value.trim();
+  const errEl   = document.getElementById('cmpModalError');
+  if(!name){ errEl.textContent='Company name is required.'; errEl.style.display='block'; return; }
+  errEl.style.display='none';
+  if(_editingCompanyId){
+    const c = companies.find(x=>x.id===_editingCompanyId);
+    if(c){ c.name=name; c.email=email; c.phone=phone; c.address=address; }
+  } else {
+    companies.push({ id: 'cmp_'+Date.now(), name, email, phone, address });
+  }
+  closeCompanyModal();
+  await saveCompanies();
+  showToast(_editingCompanyId ? 'Company updated.' : 'Company added.', 'success');
+}
+
+async function deleteCompany(id){
+  if(!confirm('Delete this company?')) return;
+  companies = companies.filter(c=>c.id!==id);
+  await saveCompanies();
+  showToast('Company deleted.','error');
 }
 
 // ── USERS FILTER ──────────────────────────────────────────
@@ -1737,8 +1963,8 @@ function renderUsersGrid(){
   if(deptQ) list=list.filter(u=>(u.dept||'').toLowerCase()===deptQ);
   if(companyQ) list=list.filter(u=>(u.company||'').toLowerCase().includes(companyQ));
   document.getElementById('userCountBadge').textContent=`(${list.length} shown / ${allUsers.length} total)`;
-  const roleLabels={admin:'Admin',depthead:'Dept Head',user:'Employee'};
-  const roleClass={admin:'role-admin',depthead:'role-depthead',user:'role-user'};
+  const roleLabels={admin:'Admin',depthead:'Dept Head',executive:'Executive',user:'Employee'};
+  const roleClass={admin:'role-admin',depthead:'role-depthead',executive:'role-exec',user:'role-user'};
   document.getElementById('usersGrid').innerHTML=list.map(a=>{
     const col=AVATAR_COLORS[a.displayName.length%AVATAR_COLORS.length];
     const inits=a.displayName.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
@@ -1752,7 +1978,10 @@ function renderUsersGrid(){
         <div><span class="user-card-role ${roleClass[a.role]||'role-user'}">${roleLabels[a.role]||a.role}</span></div>
         <div class="user-card-count">${count} report${count!==1?'s':''}</div>
       </div>
-      ${isDynamic?`<button class="btn-remove-user" title="Remove user" onclick="removeUser('${a.username}')">✕</button>`:''}
+      <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+        ${isDynamic?`<button class="btn-edit-role" title="Edit role" onclick="openEditRoleModal('${a.username}')" style="background:var(--brand-light);border:0.5px solid var(--brand-mid);color:var(--brand);font-size:11px;padding:2px 7px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif">Edit</button>`:''}
+        ${isDynamic?`<button class="btn-remove-user" title="Remove user" onclick="removeUser('${a.username}')">✕</button>`:''}
+      </div>
     </div>`;
   }).join('')||'<p style="font-size:13px;color:var(--muted);padding:1rem 1.25rem">No users match this filter.</p>';
 }
@@ -1813,13 +2042,15 @@ function showView(v){
   document.getElementById('histView').classList.toggle('visible',v==='hist');
   document.getElementById('dashView').classList.toggle('visible',v==='dash');
   document.getElementById('approveView').classList.toggle('visible',v==='approve');
-  const labelMap={form:'Submit Output',hist:'My Reports',dash:'Admin Dashboard',approve:'Dept Approvals'};
+  document.getElementById('execApproveView').classList.toggle('visible',v==='execApprove');
+  const labelMap={form:'Submit Output',hist:'My Reports',dash:'Admin Dashboard',approve:'Dept Approvals',execApprove:'Executive Review'};
   document.querySelectorAll('.nav-btn').forEach(b=>{
     b.classList.toggle('active', b.textContent.trim()===labelMap[v]);
   });
   if(v==='dash') renderDash();
   if(v==='hist') renderHistory();
   if(v==='approve') renderApproveView();
+  if(v==='execApprove') renderExecApproveView();
 }
 
 function showToast(msg,type){
@@ -1829,5 +2060,40 @@ function showToast(msg,type){
   t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);
 }
 </script>
+
+<!-- Company Add/Edit Modal -->
+<div class="modal-overlay" id="companyModal">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-head" style="background:var(--brand);border-bottom:0.5px solid rgba(255,255,255,0.15)">
+      <h4 id="companyModalTitle" style="color:white">Add Company</h4>
+      <button class="modal-close" onclick="closeCompanyModal()" style="color:rgba(255,255,255,0.7)">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Company Name <span style="color:#ef4444">*</span></label>
+          <input type="text" id="cmpModalName" placeholder="e.g. Primary School Foundation, Inc." autocomplete="off"/>
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="text" id="cmpModalEmail" placeholder="info@company.com" autocomplete="off"/>
+        </div>
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="text" id="cmpModalPhone" placeholder="+63 2 XXXX XXXX" autocomplete="off"/>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Address</label>
+          <input type="text" id="cmpModalAddress" placeholder="Street, City, Province" autocomplete="off"/>
+        </div>
+      </div>
+      <div id="cmpModalError" style="font-size:13px;color:#dc2626;background:#fef2f2;border:0.5px solid #fca5a5;padding:8px 12px;border-radius:7px;margin-top:10px;display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="closeCompanyModal()">Cancel</button>
+      <button class="btn-modal-confirm" onclick="saveCompanyModal()">Save Company</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
