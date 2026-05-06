@@ -262,7 +262,19 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
 .btn-remove-user:hover{color:#ef4444}
 .user-card{justify-content:flex-start}
 
-/* ── REG REQUESTS ENHANCED ── */
+/* ── DEPT & COMPANY MANAGEMENT ── */
+.dept-item{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border:0.5px solid var(--border);border-radius:8px;background:var(--bg);margin-bottom:6px}
+.dept-item-name{font-size:13px;font-weight:500;color:var(--text)}
+.btn-remove-dept{background:transparent;border:none;cursor:pointer;color:#d1d5db;font-size:13px;padding:2px 4px;line-height:1;border-radius:4px;transition:color 0.15s}
+.btn-remove-dept:hover{color:#ef4444;background:#fee2e2}
+.dept-add-row{display:flex;gap:8px;margin-top:8px}
+.dept-add-row input{flex:1;font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 12px;border:0.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);outline:none}
+.dept-add-row input:focus{border-color:var(--brand-mid);box-shadow:0 0 0 3px rgba(26,107,92,0.08)}
+.btn-add-dept{background:var(--brand);color:white;border:none;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap}
+.btn-add-dept:hover{background:#155c4e}
+.two-col-mgmt{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.25rem}
+@media(max-width:700px){.two-col-mgmt{grid-template-columns:1fr}}
+
 .reg-tabs{display:flex;gap:4px;padding:0.75rem 1.25rem;border-bottom:0.5px solid var(--border);background:var(--bg)}
 .reg-tab{padding:5px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:500;font-family:'DM Sans',sans-serif;background:transparent;color:var(--muted);transition:all 0.15s}
 .reg-tab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,0.06)}
@@ -362,15 +374,16 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
             </div>
             <div class="form-group">
               <label>Department</label>
-<select id=Department name="department" required>
-  <option value="">-- Select Department --</option>
-  <option value="SHS">SHS</option>
-  <option value="SKILLS">SKILLS</option>
-  <option value="SEAMAN">SEAMAN</option>
-  <option value="PSEFI">PSEFI</option>
-  <option value="PSI">PSI</option>
-  <option value="COOP">COOP</option>
-              <input type="text" id="dept" placeholder="e.g. Engineering, Marketing, Finance…"/>
+              <select id="dept" name="department" required>
+                <option value="">— Select Department —</option>
+                <option value="SHS">SHS</option>
+                <option value="SKILLS">SKILLS</option>
+                <option value="SEAMAN">SEAMAN</option>
+                <option value="PSEFI">PSEFI</option>
+                <option value="PSI">PSI</option>
+                <option value="COOP">COOP</option>
+                <option value="HR">HR</option>
+              </select>
             </div>
             <div class="form-group">
               <label>Work Date</label>
@@ -526,6 +539,29 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
           <button class="reg-tab" onclick="showRegTab('all',this)">All</button>
         </div>
         <div id="pendingRegBody" style="padding:0.75rem 1.25rem 1rem"></div>
+      </div>
+
+      <!-- dept & company management (admin only) -->
+      <div class="two-col-mgmt">
+        <!-- Departments Panel -->
+        <div class="panel">
+          <div class="panel-head" style="display:flex;align-items:center;justify-content:space-between">
+            <span>🏢 Departments</span>
+            <span id="deptCountBadge" style="font-size:11px;color:var(--muted)"></span>
+          </div>
+          <div class="panel-body">
+            <div id="deptListBody"></div>
+            <div class="dept-add-row">
+              <input type="text" id="newDeptInput" placeholder="New department name…" style="text-transform:uppercase" onkeydown="if(event.key==='Enter')addDept()"/>
+              <button class="btn-add-dept" onclick="addDept()">+ Add</button>
+            </div>
+          </div>
+        </div>
+        <!-- Company Info Panel -->
+        <div class="panel">
+          <div class="panel-head">🏛️ Company Information</div>
+          <div class="panel-body" id="companyInfoBody"></div>
+        </div>
       </div>
 
       <!-- registered users -->
@@ -797,10 +833,25 @@ const AVATAR_COLORS = ['#1a6b5c','#2563eb','#7c3aed','#dc2626','#ea580c','#0891b
 // regardless of what browser/device they use.
 const STORAGE_KEY = 'worklog_submissions_v2';
 const REG_KEY = 'worklog_reg_requests_v1';
-const SYNC_INTERVAL_MS = 8000; // poll every 8 seconds
+const DEPT_KEY = 'worklog_departments_v1';
+const COMPANY_KEY = 'worklog_company_v1';
+const SYNC_INTERVAL_MS = 2000; // poll every 2 seconds for near real-time sync
 let syncTimer = null;
 let isSyncing = false;
 let lastSyncTs = null;
+
+// ── BROADCAST CHANNEL (instant same-browser/tab sync) ────
+let _bc = null;
+try { _bc = new BroadcastChannel('worklog_sync'); } catch(e) {}
+function broadcastChange(type){
+  try { if(_bc) _bc.postMessage({type, ts: Date.now()}); } catch(e) {}
+}
+if(_bc){
+  _bc.onmessage = async (ev) => {
+    // Another tab changed data — pull immediately
+    await syncFromServer(true);
+  };
+}
 
 async function loadSubmissions(){
   try{
@@ -811,6 +862,7 @@ async function loadSubmissions(){
 async function saveSubmissions(){
   try{
     await window.storage.set(STORAGE_KEY, JSON.stringify(submissions), true);
+    broadcastChange('submissions');
     updateSyncIndicator('saved');
   }catch(e){ updateSyncIndicator('error'); }
 }
@@ -823,7 +875,67 @@ async function loadRegRequests(){
 async function saveRegRequests(){
   try{
     await window.storage.set(REG_KEY, JSON.stringify(regRequests), true);
+    broadcastChange('regRequests');
   }catch(e){}
+}
+
+// ── DEPARTMENTS ───────────────────────────────────────────
+const DEFAULT_DEPTS = ['SHS','SKILLS','SEAMAN','PSEFI','PSI','COOP','HR'];
+let departments = [...DEFAULT_DEPTS];
+
+async function loadDepartments(){
+  try{
+    const res = await window.storage.get(DEPT_KEY, true);
+    return res ? JSON.parse(res.value) : [...DEFAULT_DEPTS];
+  }catch(e){ return [...DEFAULT_DEPTS]; }
+}
+async function saveDepartments(){
+  try{
+    await window.storage.set(DEPT_KEY, JSON.stringify(departments), true);
+    broadcastChange('departments');
+    populateAllDeptSelects();
+  }catch(e){}
+}
+
+// ── COMPANY INFO ─────────────────────────────────────────
+let companyInfo = { name: 'Primary School Foundation, Inc.', address: '', email: '', phone: '', logo: '' };
+
+async function loadCompanyInfo(){
+  try{
+    const res = await window.storage.get(COMPANY_KEY, true);
+    return res ? JSON.parse(res.value) : { name: 'Primary School Foundation, Inc.', address: '', email: '', phone: '', logo: '' };
+  }catch(e){ return { name: 'Primary School Foundation, Inc.', address: '', email: '', phone: '', logo: '' }; }
+}
+async function saveCompanyInfo(){
+  try{
+    await window.storage.set(COMPANY_KEY, JSON.stringify(companyInfo), true);
+    broadcastChange('company');
+    renderCompanyPanel();
+  }catch(e){}
+}
+
+function populateAllDeptSelects(){
+  const opts = departments.map(d=>`<option value="${d}">${d}</option>`).join('');
+  const full = `<option value="">— Select —</option>${opts}`;
+  ['regDept','addUserDept','userDeptFilter'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    const prev = el.value;
+    if(id==='userDeptFilter'){
+      el.innerHTML = `<option value="">All Depts</option>${opts}`;
+    } else {
+      el.innerHTML = full;
+    }
+    // Restore previous selection if still valid
+    if([...el.options].some(o=>o.value===prev)) el.value = prev;
+  });
+  // Dept select on submit form
+  const deptSel = document.getElementById('dept');
+  if(deptSel && deptSel.tagName==='SELECT'){
+    const prev2 = deptSel.value;
+    deptSel.innerHTML = full;
+    if([...deptSel.options].some(o=>o.value===prev2)) deptSel.value = prev2;
+  }
 }
 
 // ── SYNC ENGINE ──────────────────────────────────────────
@@ -852,20 +964,30 @@ async function syncFromServer(silent){
   isSyncing = true;
   if(!silent) updateSyncIndicator('syncing');
   try{
-    const [newSubs, newRegs, newDynUsers] = await Promise.all([loadSubmissions(), loadRegRequests(), loadDynamicUsers()]);
-    const prevSubLen = submissions.length;
+    const [newSubs, newRegs, newDynUsers, newDepts, newCompany] = await Promise.all([
+      loadSubmissions(), loadRegRequests(), loadDynamicUsers(), loadDepartments(), loadCompanyInfo()
+    ]);
     submissions = newSubs;
     regRequests = newRegs;
     dynamicUsers = newDynUsers;
+    departments = newDepts;
+    companyInfo = newCompany;
+    populateAllDeptSelects();
     // Re-render whatever view is active
     if(currentUser){
       if(currentUser.role==='admin'){
-        renderDash();
-        renderPendingRegistrations();
+        const dashVisible = document.getElementById('dashView')?.classList.contains('visible');
+        if(dashVisible) renderDash();
+        else {
+          renderPendingRegistrations();
+          renderUsersGrid();
+        }
       } else if(currentUser.role==='depthead'){
-        renderApproveView();
+        const approveVisible = document.getElementById('approveView')?.classList.contains('visible');
+        if(approveVisible) renderApproveView();
       } else {
-        renderHistory();
+        const histVisible = document.getElementById('histView')?.classList.contains('visible');
+        if(histVisible) renderHistory();
       }
     }
     updateSyncIndicator('ok');
@@ -894,8 +1016,11 @@ let pendingRejectId = null;
 // Bootstrap: load shared data before showing the login screen
 (async()=>{
   try{
-    [submissions, regRequests, dynamicUsers] = await Promise.all([loadSubmissions(), loadRegRequests(), loadDynamicUsers()]);
-  } catch(e){ submissions=[]; regRequests=[]; dynamicUsers=[]; }
+    [submissions, regRequests, dynamicUsers, departments, companyInfo] = await Promise.all([
+      loadSubmissions(), loadRegRequests(), loadDynamicUsers(), loadDepartments(), loadCompanyInfo()
+    ]);
+  } catch(e){ submissions=[]; regRequests=[]; dynamicUsers=[]; departments=[...DEFAULT_DEPTS]; companyInfo={name:'Primary School Foundation, Inc.',address:'',email:'',phone:'',logo:''}; }
+  populateAllDeptSelects();
   // Hide loading overlay and show login
   const overlay = document.getElementById('loadingOverlay');
   if(overlay) overlay.style.display='none';
@@ -1061,6 +1186,8 @@ async function submitForm(){
   updateSyncIndicator('syncing');
   await saveSubmissions();
   renderDash();
+  // Immediate broadcast already handled; force a sync refresh
+  await syncFromServer(true);
   // reset form
   document.getElementById('dept').value=currentUser.dept||'';
   document.getElementById('summary').value='';
@@ -1169,6 +1296,10 @@ function renderDash(){
 
   // registered users panel
   renderUsersGrid();
+
+  // dept & company panels
+  renderDeptPanel();
+  renderCompanyPanel();
 
   renderTable(currentFilter);
 }
@@ -1343,6 +1474,8 @@ async function submitRegRequest(){
   await saveRegRequests();
   closeRegisterModal();
   showToast('Access request submitted! An admin will review it shortly.','success');
+  // Force immediate sync in case this tab is also logged in as admin
+  await syncFromServer(true);
 }
 
 function renderPendingRegistrations(){
@@ -1408,6 +1541,7 @@ async function loadDynamicUsers(){
 async function saveDynamicUsers(){
   try{
     await window.storage.set(DYN_USERS_KEY, JSON.stringify(dynamicUsers), true);
+    broadcastChange('dynamicUsers');
   }catch(e){}
 }
 
@@ -1449,6 +1583,8 @@ async function confirmAddUser(){
   closeAddUserModal();
   renderDash();
   showToast(`${name} added as ${role==='admin'?'Admin':role==='depthead'?'Dept Head':'Employee'}.`,'success');
+  // Immediate broadcast already handled by saveDynamicUsers; also force local refresh
+  await syncFromServer(true);
 }
 
 // ── REMOVE DYNAMIC USER ──────────────────────────────────
@@ -1458,6 +1594,79 @@ async function removeUser(username){
   await saveDynamicUsers();
   renderDash();
   showToast('User removed.','error');
+}
+
+// ── DEPT MANAGEMENT ──────────────────────────────────────
+function renderDeptPanel(){
+  const el = document.getElementById('deptListBody');
+  if(!el) return;
+  const badge = document.getElementById('deptCountBadge');
+  if(badge) badge.textContent = `(${departments.length})`;
+  el.innerHTML = departments.map(d=>`
+    <div class="dept-item">
+      <span class="dept-item-name">${d}</span>
+      <button class="btn-remove-dept" onclick="removeDept('${d}')" title="Remove department">✕</button>
+    </div>`).join('') || '<p style="font-size:13px;color:var(--muted)">No departments yet.</p>';
+}
+
+async function addDept(){
+  const inp = document.getElementById('newDeptInput');
+  const name = inp.value.trim().toUpperCase();
+  if(!name){ showToast('Enter a department name.','error'); return; }
+  if(departments.includes(name)){ showToast('Department already exists.','error'); inp.value=''; return; }
+  departments.push(name);
+  await saveDepartments();
+  inp.value = '';
+  renderDeptPanel();
+  renderDash();
+  showToast(`Department "${name}" added.`,'success');
+}
+
+async function removeDept(name){
+  const inUse = [...ACCOUNTS,...dynamicUsers].some(u=>u.dept===name) || submissions.some(s=>s.dept===name);
+  if(inUse && !confirm(`Department "${name}" is used by existing users or reports. Remove anyway?`)) return;
+  departments = departments.filter(d=>d!==name);
+  await saveDepartments();
+  renderDeptPanel();
+  renderDash();
+  showToast(`Department "${name}" removed.`,'error');
+}
+
+// ── COMPANY INFO PANEL ────────────────────────────────────
+function renderCompanyPanel(){
+  const el = document.getElementById('companyInfoBody');
+  if(!el) return;
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group" style="grid-column:1/-1">
+        <label style="font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Company Name</label>
+        <input type="text" id="cmpName" value="${companyInfo.name||''}" placeholder="e.g. Primary School Foundation, Inc." style="width:100%;font-family:'DM Sans',sans-serif;font-size:14px;padding:9px 12px;border:0.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);outline:none"/>
+      </div>
+      <div class="form-group">
+        <label style="font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Email</label>
+        <input type="text" id="cmpEmail" value="${companyInfo.email||''}" placeholder="info@company.com" style="width:100%;font-family:'DM Sans',sans-serif;font-size:14px;padding:9px 12px;border:0.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);outline:none"/>
+      </div>
+      <div class="form-group">
+        <label style="font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Phone</label>
+        <input type="text" id="cmpPhone" value="${companyInfo.phone||''}" placeholder="+63 2 XXXX XXXX" style="width:100%;font-family:'DM Sans',sans-serif;font-size:14px;padding:9px 12px;border:0.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);outline:none"/>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label style="font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px">Address</label>
+        <input type="text" id="cmpAddress" value="${companyInfo.address||''}" placeholder="Street, City, Province" style="width:100%;font-family:'DM Sans',sans-serif;font-size:14px;padding:9px 12px;border:0.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);outline:none"/>
+      </div>
+    </div>
+    <div style="margin-top:12px;display:flex;justify-content:flex-end">
+      <button onclick="saveCompanyEdits()" style="background:var(--brand);color:white;border:none;padding:9px 20px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif">Save Company Info</button>
+    </div>`;
+}
+
+async function saveCompanyEdits(){
+  companyInfo.name    = document.getElementById('cmpName')?.value.trim()    || companyInfo.name;
+  companyInfo.email   = document.getElementById('cmpEmail')?.value.trim()   || '';
+  companyInfo.phone   = document.getElementById('cmpPhone')?.value.trim()   || '';
+  companyInfo.address = document.getElementById('cmpAddress')?.value.trim() || '';
+  await saveCompanyInfo();
+  showToast('Company info saved.','success');
 }
 
 // ── USERS FILTER ──────────────────────────────────────────
