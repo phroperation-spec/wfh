@@ -579,6 +579,14 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
                 <option>SHS</option><option>SKILLS</option><option>SEAMAN</option>
                 <option>PSEFI</option><option>PSI</option><option>COOP</option><option>HR</option>
               </select>
+              <select id="userCompanyFilter" onchange="renderUsersGrid()" style="font-size:12px;padding:4px 8px;border-radius:6px;border:0.5px solid var(--border);background:var(--bg);color:var(--muted);font-family:'DM Sans',sans-serif;cursor:pointer">
+                <option value="">All Companies</option>
+                <option value="Primary School Foundation, Inc.">Primary School Foundation</option>
+                <option value="PSI">PSI</option>
+                <option value="PSEFI">PSEFI</option>
+                <option value="COOP">COOP</option>
+                <option value="Other">Other</option>
+              </select>
             </div>
             <button class="btn-add-user" onclick="openAddUserModal()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -643,6 +651,17 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
             <option value="">— Select —</option>
             <option>SHS</option><option>SKILLS</option><option>SEAMAN</option>
             <option>PSEFI</option><option>PSI</option><option>COOP</option><option>HR</option>
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Company <span style="color:#ef4444">*</span></label>
+          <select id="regCompany">
+            <option value="">— Select Company —</option>
+            <option value="Primary School Foundation, Inc.">Primary School Foundation, Inc.</option>
+            <option value="PSI">PSI</option>
+            <option value="PSEFI">PSEFI</option>
+            <option value="COOP">COOP</option>
+            <option value="Other">Other</option>
           </select>
         </div>
         <div class="form-group">
@@ -719,6 +738,17 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
             <option value="">— Select —</option>
             <option>SHS</option><option>SKILLS</option><option>SEAMAN</option>
             <option>PSEFI</option><option>PSI</option><option>COOP</option><option>HR</option>
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Company</label>
+          <select id="addUserCompany">
+            <option value="">— Select Company —</option>
+            <option value="Primary School Foundation, Inc.">Primary School Foundation, Inc.</option>
+            <option value="PSI">PSI</option>
+            <option value="PSEFI">PSEFI</option>
+            <option value="COOP">COOP</option>
+            <option value="Other">Other</option>
           </select>
         </div>
         <div class="form-group">
@@ -1038,7 +1068,15 @@ async function doLogin(){
   if(!acct){
     // check approved registrations
     const reg = regRequests.find(r => r.username === u && r.password === p && r.status === 'approved');
-    if(reg) acct = {username:reg.username, password:reg.password, role:'user', displayName:reg.name.toUpperCase(), dept:reg.dept};
+    if(reg){
+      acct = {username:reg.username, password:reg.password, role:'user', displayName:reg.name.toUpperCase(), dept:reg.dept, company:reg.company||''};
+      // Persist to dynamicUsers if not already there (so admin can see them)
+      const alreadyDynamic = dynamicUsers.some(d=>d.username===reg.username);
+      if(!alreadyDynamic){
+        dynamicUsers.push({...acct, addedBy:'self-registration', addedAt:reg.reviewedAt||new Date().toISOString()});
+        try{ await saveDynamicUsers(); }catch(e){}
+      }
+    }
   }
   if(!acct){
     // check if pending
@@ -1447,6 +1485,7 @@ function openRegisterModal(){
   document.getElementById('regName').value='';
   document.getElementById('regUsername').value='';
   document.getElementById('regDept').value='';
+  document.getElementById('regCompany').value='';
   document.getElementById('regPassword').value='';
   document.getElementById('regPasswordConfirm').value='';
   document.getElementById('regError').style.display='none';
@@ -1459,18 +1498,19 @@ async function submitRegRequest(){
   const name=document.getElementById('regName').value.trim().toUpperCase();
   const username=document.getElementById('regUsername').value.trim();
   const dept=document.getElementById('regDept').value;
+  const company=document.getElementById('regCompany').value;
   const pw=document.getElementById('regPassword').value;
   const pw2=document.getElementById('regPasswordConfirm').value;
   const errEl=document.getElementById('regError');
   const showErr=msg=>{errEl.textContent=msg;errEl.style.display='block';};
-  if(!name||!username||!dept||!pw){showErr('Please fill in all required fields.');return;}
+  if(!name||!username||!dept||!company||!pw){showErr('Please fill in all required fields.');return;}
   if(pw!==pw2){showErr('Passwords do not match.');return;}
   if(pw.length<6){showErr('Password must be at least 6 characters.');return;}
   // Re-fetch latest reg requests before checking duplicates
   try{ regRequests = await loadRegRequests(); }catch(e){}
   const alreadyExists=ACCOUNTS.some(a=>a.username===username)||regRequests.some(r=>r.username===username);
   if(alreadyExists){showErr('This Employee ID is already registered or has a pending request.');return;}
-  regRequests.push({id:Date.now()+'_'+Math.random().toString(36).slice(2,5),name,username,dept,password:pw,status:'pending',requestedAt:new Date().toISOString()});
+  regRequests.push({id:Date.now()+'_'+Math.random().toString(36).slice(2,5),name,username,dept,company,password:pw,status:'pending',requestedAt:new Date().toISOString()});
   await saveRegRequests();
   closeRegisterModal();
   showToast('Access request submitted! An admin will review it shortly.','success');
@@ -1505,7 +1545,7 @@ function renderPendingRegistrations(){
     return `<div class="reg-req-card">
       <div class="reg-req-info">
         <div class="reg-req-name">${r.name} <span class="reg-status-badge ${statusCls}">${statusLabel}</span></div>
-        <div class="reg-req-meta" style="margin-top:3px">ID: <strong>${r.username}</strong> &nbsp;·&nbsp; Dept: <strong>${r.dept}</strong></div>
+        <div class="reg-req-meta" style="margin-top:3px">ID: <strong>${r.username}</strong> &nbsp;·&nbsp; Dept: <strong>${r.dept}</strong>${r.company?` &nbsp;·&nbsp; Company: <strong>${r.company}</strong>`:''}</div>
         <div class="reg-req-meta">Requested: ${dt}</div>
       </div>
       ${actions}
@@ -1517,6 +1557,12 @@ async function approveRegRequest(id){
   const r=regRequests.find(x=>x.id===id);
   if(!r) return;
   r.status='approved';r.reviewedAt=new Date().toISOString();
+  // Auto-add to dynamicUsers so they appear in the admin Users panel immediately
+  const alreadyDynamic = dynamicUsers.some(d=>d.username===r.username);
+  if(!alreadyDynamic){
+    dynamicUsers.push({username:r.username,password:r.password,role:'user',displayName:r.name.toUpperCase(),dept:r.dept,company:r.company||'',addedBy:'self-registration',addedAt:r.reviewedAt});
+    await saveDynamicUsers();
+  }
   await saveRegRequests();renderPendingRegistrations();renderDash();
   showToast(`${r.name} approved! They can now log in.`,'success');
 }
@@ -1549,6 +1595,7 @@ function openAddUserModal(){
   document.getElementById('addUserName').value='';
   document.getElementById('addUserId').value='';
   document.getElementById('addUserDept').value='';
+  document.getElementById('addUserCompany').value='';
   document.getElementById('addUserPassword').value='';
   document.getElementById('addUserRole').value='user';
   document.getElementById('addUserError').style.display='none';
@@ -1569,6 +1616,7 @@ async function confirmAddUser(){
   const name=document.getElementById('addUserName').value.trim().toUpperCase();
   const username=document.getElementById('addUserId').value.trim();
   const dept=document.getElementById('addUserDept').value;
+  const company=document.getElementById('addUserCompany').value;
   const password=document.getElementById('addUserPassword').value;
   const role=document.getElementById('addUserRole').value;
   const errEl=document.getElementById('addUserError');
@@ -1577,7 +1625,7 @@ async function confirmAddUser(){
   if(password.length<4){showErr('Password must be at least 4 characters.');return;}
   const allUsers=[...ACCOUNTS,...dynamicUsers];
   if(allUsers.some(a=>a.username===username)){showErr('This Employee ID already exists.');return;}
-  const newUser={username,password,role,displayName:name,dept,addedBy:currentUser.displayName,addedAt:new Date().toISOString()};
+  const newUser={username,password,role,displayName:name,dept,company,addedBy:currentUser.displayName,addedAt:new Date().toISOString()};
   dynamicUsers.push(newUser);
   await saveDynamicUsers();
   closeAddUserModal();
@@ -1682,10 +1730,12 @@ function filterUsers(f,btn){
 
 function renderUsersGrid(){
   const deptQ=(document.getElementById('userDeptFilter')?.value||'').toLowerCase();
+  const companyQ=(document.getElementById('userCompanyFilter')?.value||'').toLowerCase();
   const allUsers=[...ACCOUNTS,...dynamicUsers];
   let list=allUsers;
   if(currentUserFilter!=='all') list=list.filter(u=>u.role===currentUserFilter);
   if(deptQ) list=list.filter(u=>(u.dept||'').toLowerCase()===deptQ);
+  if(companyQ) list=list.filter(u=>(u.company||'').toLowerCase().includes(companyQ));
   document.getElementById('userCountBadge').textContent=`(${list.length} shown / ${allUsers.length} total)`;
   const roleLabels={admin:'Admin',depthead:'Dept Head',user:'Employee'};
   const roleClass={admin:'role-admin',depthead:'role-depthead',user:'role-user'};
@@ -1698,7 +1748,7 @@ function renderUsersGrid(){
       <div class="user-card-avatar" style="background:${col}22;color:${col}">${inits}</div>
       <div style="flex:1;min-width:0">
         <div class="user-card-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.displayName}</div>
-        <div class="user-card-dept">${a.dept||'—'}</div>
+        <div class="user-card-dept">${a.dept||'—'}${a.company?` · <span style="color:var(--brand);font-size:10px">${a.company}</span>`:''}</div>
         <div><span class="user-card-role ${roleClass[a.role]||'role-user'}">${roleLabels[a.role]||a.role}</span></div>
         <div class="user-card-count">${count} report${count!==1?'s':''}</div>
       </div>
