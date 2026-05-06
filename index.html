@@ -225,12 +225,28 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
 .view-task-hrs{font-weight:600;color:var(--brand);text-align:right}
 .btn-view{background:var(--brand-light);color:var(--brand);border:0.5px solid var(--brand-mid);padding:4px 10px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s}
 .btn-view:hover{background:#c7ede6}
+.sync-status{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:500;padding:4px 10px;border-radius:20px;background:var(--bg);border:0.5px solid var(--border);transition:color 0.3s;}
+.sync-dot{display:inline-block;width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.sync-dot.live{background:#22c55e;box-shadow:0 0 0 2px #dcfce7;animation:pulse-live 2s infinite;}
+.sync-dot.syncing{background:#f59e0b;animation:spin 1s linear infinite;}
+.sync-dot.error{background:#ef4444;}
+@keyframes pulse-live{0%,100%{opacity:1;}50%{opacity:0.5;}}
+@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+.loading-overlay{position:fixed;inset:0;background:white;display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:14px;}
+.loading-spinner{width:36px;height:36px;border:3px solid var(--brand-light);border-top-color:var(--brand);border-radius:50%;animation:spin 0.7s linear infinite;}
+.loading-text{font-size:14px;color:var(--muted);font-weight:500;}
 </style>
 </head>
 <body>
 
+<!-- Loading overlay shown while shared data loads -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Connecting to shared workspace…</div>
+</div>
+
 <!-- ══ LOGIN SCREEN ══ -->
-<div class="login-wrap" id="loginWrap">
+<div class="login-wrap" id="loginWrap" style="display:none;">
   <div class="login-card">
     <div class="login-header">
       <div class="login-logo-icon">
@@ -278,6 +294,7 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
       <button class="nav-btn depthead-only" onclick="showView('approve')" style="display:none">Dept Approvals</button>
     </div>
     <div class="topbar-right">
+      <span class="sync-status" id="syncStatus"><span class="sync-dot syncing"></span> Connecting…</span>
       <div class="user-pill">
         <div class="user-avatar" id="topAvatar">?</div>
         <div>
@@ -317,7 +334,6 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
   <option value="PSEFI">PSEFI</option>
   <option value="PSI">PSI</option>
   <option value="COOP">COOP</option>
-    <option value="HR">HR</option>
               <input type="text" id="dept" placeholder="e.g. Engineering, Marketing, Finance…"/>
             </div>
             <div class="form-group">
@@ -590,7 +606,6 @@ const ACCOUNTS = [
 {username:'00001174', password:'welcome', role:'admin',  displayName:'YANGCO, JOHN MICHAEL P.',  dept:'HR'},
 {username:'00001766', password:'welcome', role:'admin',  displayName:'SELLOTE, PATRESS D.',  dept:'HR'},
 {username:'PS003887', password:'welcome', role:'admin',  displayName:'GONZAGA, KARL ANTHONY G.',  dept:'PSEFI'},
-  {username:'00001174', password:'welcome', role:'depthead',  displayName:'YANGCO, JOHN MICHAEL P.',  dept:'HR'},
 {username:'PS000092', password:'welcome',  role:'depthead',   displayName:'CUBIJANO, JESSIE M.', dept:'SKILLS'},
 {username:'PS000124', password:'primary.com',  role:'user', displayName:'AYING, JOY F.', dept: 'SKILLS'},
 {username:'PS000129', password:'primary.com',  role:'user', displayName:'BANTACULO, JAMESMAE A.', dept:'SHS'},
@@ -650,7 +665,7 @@ const ACCOUNTS = [
 {username:'00001902', password:'primary.com',  role:'user', displayName:'MONTEMAYOR, MARIETTA ANNE V.', dept:'COOP'},
 {username:'PS000139', password:'primary.com',  role:'user', displayName:'OLAGUIR, JEAN NINE G.', dept:'PSEFI'},
 {username:'PS000109', password:'primary.com',  role:'user', displayName:'ABALOS, ELOISA MARIE P.', dept:'SHS'},
-{username:'00001827', password:'primary.com',  role:'user', displayName:'PERATER, JHOY', dept:'HR'},
+
 ];
 
 const CATS = ['Development','Meetings','Design','Research','Documentation','Admin','Support','Other'];
@@ -666,34 +681,121 @@ const CAT_BG = {
 };
 const AVATAR_COLORS = ['#1a6b5c','#2563eb','#7c3aed','#dc2626','#ea580c','#0891b2'];
 
-// ── PERSISTENT STORAGE ────────────────────────────────────
+// ── PERSISTENT SHARED STORAGE ─────────────────────────────
+// Uses window.storage (shared: true) so ALL users see the same data
+// regardless of what browser/device they use.
 const STORAGE_KEY = 'worklog_submissions_v2';
 const REG_KEY = 'worklog_reg_requests_v1';
-function loadSubmissions(){
-  try{ const raw=localStorage.getItem(STORAGE_KEY); return raw?JSON.parse(raw):[]; }catch(e){return [];}
+const SYNC_INTERVAL_MS = 8000; // poll every 8 seconds
+let syncTimer = null;
+let isSyncing = false;
+let lastSyncTs = null;
+
+async function loadSubmissions(){
+  try{
+    const res = await window.storage.get(STORAGE_KEY, true);
+    return res ? JSON.parse(res.value) : [];
+  }catch(e){ return []; }
 }
-function saveSubmissions(){
-  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(submissions)); }catch(e){}
+async function saveSubmissions(){
+  try{
+    await window.storage.set(STORAGE_KEY, JSON.stringify(submissions), true);
+    updateSyncIndicator('saved');
+  }catch(e){ updateSyncIndicator('error'); }
 }
-function loadRegRequests(){
-  try{ const raw=localStorage.getItem(REG_KEY); return raw?JSON.parse(raw):[]; }catch(e){return [];}
+async function loadRegRequests(){
+  try{
+    const res = await window.storage.get(REG_KEY, true);
+    return res ? JSON.parse(res.value) : [];
+  }catch(e){ return []; }
 }
-function saveRegRequests(){
-  try{ localStorage.setItem(REG_KEY, JSON.stringify(regRequests)); }catch(e){}
+async function saveRegRequests(){
+  try{
+    await window.storage.set(REG_KEY, JSON.stringify(regRequests), true);
+  }catch(e){}
 }
 
-let submissions = loadSubmissions();
-let regRequests = loadRegRequests();
+// ── SYNC ENGINE ──────────────────────────────────────────
+function updateSyncIndicator(state){
+  const el = document.getElementById('syncStatus');
+  if(!el) return;
+  const now = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  if(state==='syncing'){
+    el.innerHTML=`<span class="sync-dot syncing"></span> Syncing…`;
+    el.style.color='#f59e0b';
+  } else if(state==='saved'){
+    lastSyncTs = now;
+    el.innerHTML=`<span class="sync-dot live"></span> Live · ${now}`;
+    el.style.color='#16a34a';
+  } else if(state==='error'){
+    el.innerHTML=`<span class="sync-dot error"></span> Sync error`;
+    el.style.color='#dc2626';
+  } else {
+    el.innerHTML=`<span class="sync-dot live"></span> Live · ${now}`;
+    el.style.color='#16a34a';
+  }
+}
+
+async function syncFromServer(silent){
+  if(isSyncing) return;
+  isSyncing = true;
+  if(!silent) updateSyncIndicator('syncing');
+  try{
+    const [newSubs, newRegs] = await Promise.all([loadSubmissions(), loadRegRequests()]);
+    const prevSubLen = submissions.length;
+    submissions = newSubs;
+    regRequests = newRegs;
+    // Re-render whatever view is active
+    if(currentUser){
+      if(currentUser.role==='admin'){
+        renderDash();
+        renderPendingRegistrations();
+      } else if(currentUser.role==='depthead'){
+        renderApproveView();
+      } else {
+        renderHistory();
+      }
+    }
+    updateSyncIndicator('ok');
+  } catch(e){
+    updateSyncIndicator('error');
+  }
+  isSyncing = false;
+}
+
+function startSyncTimer(){
+  stopSyncTimer();
+  syncTimer = setInterval(()=>syncFromServer(true), SYNC_INTERVAL_MS);
+}
+function stopSyncTimer(){
+  if(syncTimer){ clearInterval(syncTimer); syncTimer=null; }
+}
+
+let submissions = [];
+let regRequests = [];
 let taskCount = 0;
 let currentFilter = 'all';
 let currentApproveFilter = 'all';
 let currentUser = null;
 let pendingRejectId = null;
 
+// Bootstrap: load shared data before showing the login screen
+(async()=>{
+  try{
+    [submissions, regRequests] = await Promise.all([loadSubmissions(), loadRegRequests()]);
+  } catch(e){ submissions=[]; regRequests=[]; }
+  // Hide loading overlay and show login
+  const overlay = document.getElementById('loadingOverlay');
+  if(overlay) overlay.style.display='none';
+  document.getElementById('loginWrap').style.display='flex';
+})();
+
 // ── LOGIN ─────────────────────────────────────────────────
-function doLogin(){
+async function doLogin(){
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value;
+  // Re-load shared data fresh before login check (so new reg requests are current)
+  try{ [submissions, regRequests] = await Promise.all([loadSubmissions(), loadRegRequests()]); }catch(e){}
   let acct = ACCOUNTS.find(a => a.username === u && a.password === p);
   if(!acct){
     // check approved registrations
@@ -715,9 +817,12 @@ function doLogin(){
   document.getElementById('appShell').classList.add('visible');
   setupUserUI();
   initApp();
+  startSyncTimer();
+  updateSyncIndicator('ok');
 }
 
 function doLogout(){
+  stopSyncTimer();
   currentUser = null;
   document.getElementById('appShell').classList.remove('visible');
   document.getElementById('loginWrap').style.display='flex';
@@ -826,7 +931,7 @@ function updateDot(){
 }
 
 // ── SUBMIT ────────────────────────────────────────────────
-function submitForm(){
+async function submitForm(){
   const name=document.getElementById('empName').value.trim();
   const dept=document.getElementById('dept').value.trim();
   const date=document.getElementById('workDate').value;
@@ -840,7 +945,8 @@ function submitForm(){
   const loggedTotal=tasks.reduce((a,t)=>a+t.hrs,0);
   const subId = Date.now()+'_'+Math.random().toString(36).slice(2,7);
   submissions.unshift({id:subId,username:currentUser.username,name,dept,date,totalHours,loggedTotal,summary,tasks,status,approval:'pending',approvalNote:'',approvedBy:'',approvedAt:'',submittedAt:new Date().toISOString()});
-  saveSubmissions();
+  updateSyncIndicator('syncing');
+  await saveSubmissions();
   renderDash();
   // reset form
   document.getElementById('dept').value=currentUser.dept||'';
@@ -975,13 +1081,11 @@ function filterSubs(f,btn){
 }
 
 // ── ADMIN DELETE FUNCTION ─────────────────────────────────
-function deleteReport(id) {
+async function deleteReport(id) {
   if (!confirm("Are you sure you want to delete this report? This action cannot be undone.")) return;
-  
   submissions = submissions.filter(s => s.id !== id);
-  saveSubmissions();
-  
-  // Refresh dashboard and show confirmation
+  updateSyncIndicator('syncing');
+  await saveSubmissions();
   renderDash();
   showToast("Report deleted successfully", "error");
 }
@@ -1077,11 +1181,12 @@ function renderApproveTable(){
   }).join('');
 }
 
-function approveReport(id){
+async function approveReport(id){
   const s=submissions.find(x=>x.id===id);
   if(!s) return;
   s.approval='approved';s.approvedBy=currentUser.displayName;s.approvedAt=new Date().toISOString();
-  saveSubmissions();renderApproveView();showToast('Report approved!','success');
+  updateSyncIndicator('syncing');
+  await saveSubmissions();renderApproveView();showToast('Report approved!','success');
 }
 
 function openRejectModal(id){
@@ -1094,13 +1199,14 @@ function closeRejectModal(){
   document.getElementById('rejectModal').classList.remove('show');
 }
 
-function confirmReject(){
+async function confirmReject(){
   if(!pendingRejectId) return;
   const s=submissions.find(x=>x.id===pendingRejectId);
   if(s){
     s.approval='rejected';s.approvalNote=document.getElementById('rejectReason').value.trim();
     s.approvedBy=currentUser.displayName;s.approvedAt=new Date().toISOString();
-    saveSubmissions();renderApproveView();showToast('Report rejected.','error');
+    updateSyncIndicator('syncing');
+    await saveSubmissions();renderApproveView();showToast('Report rejected.','error');
   }
   closeRejectModal();
 }
@@ -1118,7 +1224,7 @@ function openRegisterModal(){
 function closeRegisterModal(){
   document.getElementById('registerModal').classList.remove('show');
 }
-function submitRegRequest(){
+async function submitRegRequest(){
   const name=document.getElementById('regName').value.trim().toUpperCase();
   const username=document.getElementById('regUsername').value.trim();
   const dept=document.getElementById('regDept').value;
@@ -1129,10 +1235,12 @@ function submitRegRequest(){
   if(!name||!username||!dept||!pw){showErr('Please fill in all required fields.');return;}
   if(pw!==pw2){showErr('Passwords do not match.');return;}
   if(pw.length<6){showErr('Password must be at least 6 characters.');return;}
+  // Re-fetch latest reg requests before checking duplicates
+  try{ regRequests = await loadRegRequests(); }catch(e){}
   const alreadyExists=ACCOUNTS.some(a=>a.username===username)||regRequests.some(r=>r.username===username);
   if(alreadyExists){showErr('This Employee ID is already registered or has a pending request.');return;}
   regRequests.push({id:Date.now()+'_'+Math.random().toString(36).slice(2,5),name,username,dept,password:pw,status:'pending',requestedAt:new Date().toISOString()});
-  saveRegRequests();
+  await saveRegRequests();
   closeRegisterModal();
   showToast('Access request submitted! An admin will review it shortly.','success');
 }
@@ -1163,18 +1271,18 @@ function renderPendingRegistrations(){
   }).join('');
 }
 
-function approveRegRequest(id){
+async function approveRegRequest(id){
   const r=regRequests.find(x=>x.id===id);
   if(!r) return;
   r.status='approved';r.reviewedAt=new Date().toISOString();
-  saveRegRequests();renderPendingRegistrations();renderDash();
+  await saveRegRequests();renderPendingRegistrations();renderDash();
   showToast(`${r.name} approved! They can now log in.`,'success');
 }
-function rejectRegRequest(id){
+async function rejectRegRequest(id){
   const r=regRequests.find(x=>x.id===id);
   if(!r) return;
   r.status='rejected';r.reviewedAt=new Date().toISOString();
-  saveRegRequests();renderPendingRegistrations();
+  await saveRegRequests();renderPendingRegistrations();
   showToast(`Registration for ${r.name} rejected.`,'error');
 }
 
