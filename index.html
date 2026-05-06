@@ -235,6 +235,42 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
 .loading-overlay{position:fixed;inset:0;background:white;display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:14px;}
 .loading-spinner{width:36px;height:36px;border:3px solid var(--brand-light);border-top-color:var(--brand);border-radius:50%;animation:spin 0.7s linear infinite;}
 .loading-text{font-size:14px;color:var(--muted);font-weight:500;}
+
+/* ── ADD USER MODAL ── */
+.add-user-modal{max-width:500px}
+.add-user-modal .modal-head{background:var(--brand);border-bottom:0.5px solid rgba(255,255,255,0.2)}
+.add-user-modal .modal-head h4{color:white}
+.add-user-modal .modal-close{color:rgba(255,255,255,0.7)}
+.role-select-group{display:flex;gap:8px;margin-top:4px}
+.role-chip{flex:1;padding:8px 10px;border-radius:8px;border:0.5px solid var(--border);background:var(--bg);cursor:pointer;font-size:12px;font-weight:500;font-family:'DM Sans',sans-serif;color:var(--muted);text-align:center;transition:all 0.15s}
+.role-chip.selected{background:var(--brand-light);border-color:var(--brand-mid);color:var(--brand)}
+.role-chip.admin-sel.selected{background:#fef9c3;border-color:#fde68a;color:#92400e}
+.role-chip.depthead-sel.selected{background:#ede9fe;border-color:#c4b5fd;color:#5b21b6}
+.btn-add-user{background:var(--brand);color:white;border:none;padding:7px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s;display:flex;align-items:center;gap:6px}
+.btn-add-user:hover{background:#155c4e}
+
+/* ── USERS PANEL ENHANCED ── */
+.users-panel-head{padding:1rem 1.25rem;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.users-filter-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.users-filter-btn{padding:4px 11px;border-radius:6px;border:0.5px solid var(--border);background:transparent;cursor:pointer;font-size:12px;font-weight:500;font-family:'DM Sans',sans-serif;color:var(--muted);transition:all 0.15s}
+.users-filter-btn.active{background:var(--brand-light);border-color:var(--brand-mid);color:var(--brand)}
+.user-card-role{font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;display:inline-block;margin-top:2px}
+.role-admin{background:#fef3c7;color:#92400e;border:0.5px solid #fde68a}
+.role-depthead{background:#ede9fe;color:#5b21b6;border:0.5px solid #c4b5fd}
+.role-user{background:#f3f4f6;color:#4b5563;border:0.5px solid #d1d5db}
+.btn-remove-user{background:transparent;border:none;cursor:pointer;color:#d1d5db;font-size:14px;padding:2px;line-height:1;margin-left:auto;transition:color 0.15s;flex-shrink:0}
+.btn-remove-user:hover{color:#ef4444}
+.user-card{justify-content:flex-start}
+
+/* ── REG REQUESTS ENHANCED ── */
+.reg-tabs{display:flex;gap:4px;padding:0.75rem 1.25rem;border-bottom:0.5px solid var(--border);background:var(--bg)}
+.reg-tab{padding:5px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:500;font-family:'DM Sans',sans-serif;background:transparent;color:var(--muted);transition:all 0.15s}
+.reg-tab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+.reg-req-card{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;padding:12px;border:0.5px solid var(--border);border-radius:8px;background:var(--bg);margin-bottom:8px}
+.reg-status-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;display:inline-block;margin-top:3px}
+.reg-status-pending{background:#fef9c3;color:#92400e;border:0.5px solid #fde68a}
+.reg-status-approved{background:#dcfce7;color:#166534;border:0.5px solid #86efac}
+.reg-status-rejected{background:#fee2e2;color:#991b1b;border:0.5px solid #fca5a5}
 </style>
 </head>
 <body>
@@ -478,15 +514,42 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
       <!-- pending registrations (admin only) -->
       <div class="panel" style="margin-bottom:1.25rem" id="pendingRegPanel">
         <div class="panel-head" style="display:flex;align-items:center;justify-content:space-between">
-          <span>Pending Registration Requests</span>
-          <span class="admin-badge" id="pendingRegBadge" style="display:none">0</span>
+          <span>Registration Requests</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="admin-badge" id="pendingRegBadge" style="display:none">0 Pending</span>
+          </div>
         </div>
-        <div id="pendingRegBody" style="padding:0 1.25rem 1rem"></div>
+        <div class="reg-tabs">
+          <button class="reg-tab active" onclick="showRegTab('pending',this)">⏳ Pending</button>
+          <button class="reg-tab" onclick="showRegTab('approved',this)">✓ Approved</button>
+          <button class="reg-tab" onclick="showRegTab('rejected',this)">✕ Rejected</button>
+          <button class="reg-tab" onclick="showRegTab('all',this)">All</button>
+        </div>
+        <div id="pendingRegBody" style="padding:0.75rem 1.25rem 1rem"></div>
       </div>
 
       <!-- registered users -->
       <div class="panel" style="margin-bottom:1.25rem">
-        <div class="panel-head">Registered Users</div>
+        <div class="users-panel-head">
+          <div style="font-size:14px;font-weight:500;color:var(--text)">Registered Users <span id="userCountBadge" style="font-size:12px;font-weight:400;color:var(--muted)"></span></div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <div class="users-filter-row">
+              <button class="users-filter-btn active" onclick="filterUsers('all',this)">All</button>
+              <button class="users-filter-btn" onclick="filterUsers('admin',this)">Admin</button>
+              <button class="users-filter-btn" onclick="filterUsers('depthead',this)">Dept Heads</button>
+              <button class="users-filter-btn" onclick="filterUsers('user',this)">Employees</button>
+              <select id="userDeptFilter" onchange="filterUsers(currentUserFilter)" style="font-size:12px;padding:4px 8px;border-radius:6px;border:0.5px solid var(--border);background:var(--bg);color:var(--muted);font-family:'DM Sans',sans-serif;cursor:pointer">
+                <option value="">All Depts</option>
+                <option>SHS</option><option>SKILLS</option><option>SEAMAN</option>
+                <option>PSEFI</option><option>PSI</option><option>COOP</option><option>HR</option>
+              </select>
+            </div>
+            <button class="btn-add-user" onclick="openAddUserModal()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add User
+            </button>
+          </div>
+        </div>
         <div class="users-grid" id="usersGrid"></div>
       </div>
 
@@ -593,6 +656,54 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
     <div class="modal-footer">
       <button class="btn-modal-cancel" onclick="closeRejectModal()">Cancel</button>
       <button class="btn-modal-confirm reject" onclick="confirmReject()">Reject Report</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal-overlay" id="addUserModal">
+  <div class="modal add-user-modal">
+    <div class="modal-head" style="background:var(--brand);border-bottom:0.5px solid rgba(255,255,255,0.15)">
+      <h4 style="color:white">Add New User</h4>
+      <button class="modal-close" onclick="closeAddUserModal()" style="color:rgba(255,255,255,0.75)">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px">
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Full Name <span style="color:#ef4444">*</span></label>
+          <input type="text" id="addUserName" placeholder="LASTNAME, FIRSTNAME M.I." style="text-transform:uppercase"/>
+        </div>
+        <div class="form-group">
+          <label>Employee ID / Username <span style="color:#ef4444">*</span></label>
+          <input type="text" id="addUserId" placeholder="e.g. PS000123"/>
+        </div>
+        <div class="form-group">
+          <label>Department <span style="color:#ef4444">*</span></label>
+          <select id="addUserDept">
+            <option value="">— Select —</option>
+            <option>SHS</option><option>SKILLS</option><option>SEAMAN</option>
+            <option>PSEFI</option><option>PSI</option><option>COOP</option><option>HR</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Password <span style="color:#ef4444">*</span></label>
+          <input type="password" id="addUserPassword" placeholder="Set a password"/>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Role <span style="color:#ef4444">*</span></label>
+          <div class="role-select-group">
+            <button class="role-chip selected" id="roleChipUser" onclick="selectRole('user')">👤 Employee</button>
+            <button class="role-chip depthead-sel" id="roleChipDepthead" onclick="selectRole('depthead')">🏢 Dept Head</button>
+            <button class="role-chip admin-sel" id="roleChipAdmin" onclick="selectRole('admin')">⚙️ Admin</button>
+          </div>
+          <input type="hidden" id="addUserRole" value="user"/>
+        </div>
+      </div>
+      <div id="addUserError" style="font-size:13px;color:#dc2626;background:#fef2f2;border:0.5px solid #fca5a5;padding:8px 12px;border-radius:7px;margin-top:8px;display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="closeAddUserModal()">Cancel</button>
+      <button class="btn-modal-confirm" onclick="confirmAddUser()">Add User</button>
     </div>
   </div>
 </div>
@@ -741,10 +852,11 @@ async function syncFromServer(silent){
   isSyncing = true;
   if(!silent) updateSyncIndicator('syncing');
   try{
-    const [newSubs, newRegs] = await Promise.all([loadSubmissions(), loadRegRequests()]);
+    const [newSubs, newRegs, newDynUsers] = await Promise.all([loadSubmissions(), loadRegRequests(), loadDynamicUsers()]);
     const prevSubLen = submissions.length;
     submissions = newSubs;
     regRequests = newRegs;
+    dynamicUsers = newDynUsers;
     // Re-render whatever view is active
     if(currentUser){
       if(currentUser.role==='admin'){
@@ -782,8 +894,8 @@ let pendingRejectId = null;
 // Bootstrap: load shared data before showing the login screen
 (async()=>{
   try{
-    [submissions, regRequests] = await Promise.all([loadSubmissions(), loadRegRequests()]);
-  } catch(e){ submissions=[]; regRequests=[]; }
+    [submissions, regRequests, dynamicUsers] = await Promise.all([loadSubmissions(), loadRegRequests(), loadDynamicUsers()]);
+  } catch(e){ submissions=[]; regRequests=[]; dynamicUsers=[]; }
   // Hide loading overlay and show login
   const overlay = document.getElementById('loadingOverlay');
   if(overlay) overlay.style.display='none';
@@ -795,8 +907,9 @@ async function doLogin(){
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value;
   // Re-load shared data fresh before login check (so new reg requests are current)
-  try{ [submissions, regRequests] = await Promise.all([loadSubmissions(), loadRegRequests()]); }catch(e){}
+  try{ [submissions, regRequests, dynamicUsers] = await Promise.all([loadSubmissions(), loadRegRequests(), loadDynamicUsers()]); }catch(e){}
   let acct = ACCOUNTS.find(a => a.username === u && a.password === p);
+  if(!acct){ acct = dynamicUsers.find(a => a.username === u && a.password === p); }
   if(!acct){
     // check approved registrations
     const reg = regRequests.find(r => r.username === u && r.password === p && r.status === 'approved');
@@ -1055,20 +1168,7 @@ function renderDash(){
   renderPendingRegistrations();
 
   // registered users panel
-  const userAccts=ACCOUNTS.filter(a=>a.role==='user');
-  document.getElementById('usersGrid').innerHTML=userAccts.map(a=>{
-    const col=AVATAR_COLORS[a.displayName.length%AVATAR_COLORS.length];
-    const inits=a.displayName.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-    const count=submissions.filter(s=>s.username===a.username).length;
-    return `<div class="user-card">
-      <div class="user-card-avatar" style="background:${col}22;color:${col}">${inits}</div>
-      <div>
-        <div class="user-card-name">${a.displayName}</div>
-        <div class="user-card-dept">${a.dept||'—'}</div>
-        <div class="user-card-count">${count} report${count!==1?'s':''}</div>
-      </div>
-    </div>`;
-  }).join('');
+  renderUsersGrid();
 
   renderTable(currentFilter);
 }
@@ -1250,23 +1350,32 @@ function renderPendingRegistrations(){
   const badge=document.getElementById('pendingRegBadge');
   const body=document.getElementById('pendingRegBody');
   if(!badge||!body) return;
-  if(pending.length>0){badge.style.display='';badge.textContent=pending.length;}
+  if(pending.length>0){badge.style.display='';badge.textContent=pending.length+' Pending';}
   else{badge.style.display='none';}
-  if(!pending.length){
-    body.innerHTML='<p style="font-size:13px;color:var(--muted);padding:8px 0">No pending registration requests.</p>';
+  const tab=currentRegTab||'pending';
+  const list=tab==='all'?regRequests:regRequests.filter(r=>r.status===tab);
+  if(!list.length){
+    body.innerHTML='<p style="font-size:13px;color:var(--muted);padding:8px 0">No '+(tab==='all'?'':tab+' ')+'registration requests.</p>';
     return;
   }
-  body.innerHTML=pending.map(r=>{
+  body.innerHTML=list.map(r=>{
     const dt=new Date(r.requestedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+    const reviewDt=r.reviewedAt?new Date(r.reviewedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
+    const statusCls=r.status==='approved'?'reg-status-approved':r.status==='rejected'?'reg-status-rejected':'reg-status-pending';
+    const statusLabel=r.status==='approved'?'✓ Approved':r.status==='rejected'?'✕ Rejected':'⏳ Pending';
+    const actions=r.status==='pending'
+      ?`<div class="reg-req-actions">
+          <button class="btn-approve" onclick="approveRegRequest('${r.id}')">Approve</button>
+          <button class="btn-reject" onclick="rejectRegRequest('${r.id}')">Decline</button>
+        </div>`
+      :`<div style="font-size:11px;color:var(--muted);text-align:right">${reviewDt?'Reviewed '+reviewDt:''}</div>`;
     return `<div class="reg-req-card">
       <div class="reg-req-info">
-        <div class="reg-req-name">${r.name}</div>
-        <div class="reg-req-meta">ID: ${r.username} &nbsp;·&nbsp; Dept: ${r.dept} &nbsp;·&nbsp; Requested: ${dt}</div>
+        <div class="reg-req-name">${r.name} <span class="reg-status-badge ${statusCls}">${statusLabel}</span></div>
+        <div class="reg-req-meta" style="margin-top:3px">ID: <strong>${r.username}</strong> &nbsp;·&nbsp; Dept: <strong>${r.dept}</strong></div>
+        <div class="reg-req-meta">Requested: ${dt}</div>
       </div>
-      <div class="reg-req-actions">
-        <button class="btn-approve" onclick="approveRegRequest('${r.id}')">Approve</button>
-        <button class="btn-reject" onclick="rejectRegRequest('${r.id}')">Reject</button>
-      </div>
+      ${actions}
     </div>`;
   }).join('');
 }
@@ -1285,6 +1394,123 @@ async function rejectRegRequest(id){
   await saveRegRequests();renderPendingRegistrations();
   showToast(`Registration for ${r.name} rejected.`,'error');
 }
+
+// ── ADD USER (ADMIN) ──────────────────────────────────────
+let dynamicUsers = []; // admin-added users persist in shared storage
+const DYN_USERS_KEY = 'worklog_dynamic_users_v1';
+
+async function loadDynamicUsers(){
+  try{
+    const res = await window.storage.get(DYN_USERS_KEY, true);
+    return res ? JSON.parse(res.value) : [];
+  }catch(e){ return []; }
+}
+async function saveDynamicUsers(){
+  try{
+    await window.storage.set(DYN_USERS_KEY, JSON.stringify(dynamicUsers), true);
+  }catch(e){}
+}
+
+function openAddUserModal(){
+  document.getElementById('addUserName').value='';
+  document.getElementById('addUserId').value='';
+  document.getElementById('addUserDept').value='';
+  document.getElementById('addUserPassword').value='';
+  document.getElementById('addUserRole').value='user';
+  document.getElementById('addUserError').style.display='none';
+  selectRole('user');
+  document.getElementById('addUserModal').classList.add('show');
+}
+function closeAddUserModal(){
+  document.getElementById('addUserModal').classList.remove('show');
+}
+function selectRole(r){
+  document.getElementById('addUserRole').value=r;
+  ['user','depthead','admin'].forEach(role=>{
+    const chip=document.getElementById('roleChip'+role.charAt(0).toUpperCase()+role.slice(1));
+    if(chip) chip.classList.toggle('selected', role===r);
+  });
+}
+async function confirmAddUser(){
+  const name=document.getElementById('addUserName').value.trim().toUpperCase();
+  const username=document.getElementById('addUserId').value.trim();
+  const dept=document.getElementById('addUserDept').value;
+  const password=document.getElementById('addUserPassword').value;
+  const role=document.getElementById('addUserRole').value;
+  const errEl=document.getElementById('addUserError');
+  const showErr=msg=>{errEl.textContent=msg;errEl.style.display='block';};
+  if(!name||!username||!dept||!password){showErr('Please fill in all required fields.');return;}
+  if(password.length<4){showErr('Password must be at least 4 characters.');return;}
+  const allUsers=[...ACCOUNTS,...dynamicUsers];
+  if(allUsers.some(a=>a.username===username)){showErr('This Employee ID already exists.');return;}
+  const newUser={username,password,role,displayName:name,dept,addedBy:currentUser.displayName,addedAt:new Date().toISOString()};
+  dynamicUsers.push(newUser);
+  await saveDynamicUsers();
+  closeAddUserModal();
+  renderDash();
+  showToast(`${name} added as ${role==='admin'?'Admin':role==='depthead'?'Dept Head':'Employee'}.`,'success');
+}
+
+// ── REMOVE DYNAMIC USER ──────────────────────────────────
+async function removeUser(username){
+  if(!confirm('Remove this user? They will no longer be able to log in.')) return;
+  dynamicUsers=dynamicUsers.filter(u=>u.username!==username);
+  await saveDynamicUsers();
+  renderDash();
+  showToast('User removed.','error');
+}
+
+// ── USERS FILTER ──────────────────────────────────────────
+let currentUserFilter='all';
+function filterUsers(f,btn){
+  if(typeof f==='string' && f!==undefined) currentUserFilter=f;
+  if(btn){
+    document.querySelectorAll('.users-filter-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  renderUsersGrid();
+}
+
+function renderUsersGrid(){
+  const deptQ=(document.getElementById('userDeptFilter')?.value||'').toLowerCase();
+  const allUsers=[...ACCOUNTS,...dynamicUsers];
+  let list=allUsers;
+  if(currentUserFilter!=='all') list=list.filter(u=>u.role===currentUserFilter);
+  if(deptQ) list=list.filter(u=>(u.dept||'').toLowerCase()===deptQ);
+  document.getElementById('userCountBadge').textContent=`(${list.length} shown / ${allUsers.length} total)`;
+  const roleLabels={admin:'Admin',depthead:'Dept Head',user:'Employee'};
+  const roleClass={admin:'role-admin',depthead:'role-depthead',user:'role-user'};
+  document.getElementById('usersGrid').innerHTML=list.map(a=>{
+    const col=AVATAR_COLORS[a.displayName.length%AVATAR_COLORS.length];
+    const inits=a.displayName.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    const count=submissions.filter(s=>s.username===a.username).length;
+    const isDynamic=dynamicUsers.some(u=>u.username===a.username);
+    return `<div class="user-card">
+      <div class="user-card-avatar" style="background:${col}22;color:${col}">${inits}</div>
+      <div style="flex:1;min-width:0">
+        <div class="user-card-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.displayName}</div>
+        <div class="user-card-dept">${a.dept||'—'}</div>
+        <div><span class="user-card-role ${roleClass[a.role]||'role-user'}">${roleLabels[a.role]||a.role}</span></div>
+        <div class="user-card-count">${count} report${count!==1?'s':''}</div>
+      </div>
+      ${isDynamic?`<button class="btn-remove-user" title="Remove user" onclick="removeUser('${a.username}')">✕</button>`:''}
+    </div>`;
+  }).join('')||'<p style="font-size:13px;color:var(--muted);padding:1rem 1.25rem">No users match this filter.</p>';
+}
+
+// ── REG REQUESTS TABS ─────────────────────────────────────
+let currentRegTab='pending';
+function showRegTab(tab,btn){
+  currentRegTab=tab;
+  if(btn){
+    document.querySelectorAll('.reg-tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  renderPendingRegistrations();
+}
+
+// ── TOAST ─────────────────────────────────────────────────
+// (defined at bottom of script)
 
 // ── VIEW SUBMISSION MODAL ─────────────────────────────────
 function openViewModal(id){
