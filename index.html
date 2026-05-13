@@ -5,69 +5,46 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>WorkLog — WFH Output Tracker</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
-<!-- Firebase for real cross-device sync -->
+<!-- Cross-device sync via Firebase Firestore -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getDatabase, ref, set, get, onValue, off } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+// ── FIREBASE CONFIG ───────────────────────────────────────
+// 🔧 SETUP INSTRUCTIONS (one-time, ~3 minutes):
+//   1. Go to https://console.firebase.google.com
+//   2. Click "Add project" → give it any name → Continue → Create Project
+//   3. In the left sidebar click "Firestore Database" → "Create database"
+//      → Start in "test mode" → choose any location → Enable
+//   4. In the left sidebar click the ⚙️ gear → "Project settings"
+//   5. Under "Your apps" click "</>" (Web) → register app → copy the firebaseConfig below
+//   6. Replace the placeholder values below with your real config and save/re-upload
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-  // ── FIREBASE CONFIG ────────────────────────────────────────
-  // This is a shared WorkLog database. All users on all devices share this data.
-  const firebaseConfig = {
-    apiKey: "AIzaSyDemo_WorkLog_Replace_With_Your_Key",
-    authDomain: "worklog-app.firebaseapp.com",
-    databaseURL: "https://worklog-app-default-rtdb.firebaseio.com",
-    projectId: "worklog-app",
-    storageBucket: "worklog-app.appspot.com",
-    messagingSenderId: "000000000000",
-    appId: "1:000000000000:web:0000000000000000000000"
-  };
+const firebaseConfig = {
+  apiKey: "AIzaSyDpllThla4Av7p7wLU4oNm96iARsU1H-Fw",
+  authDomain: "workfromhome-1dbf3.firebaseapp.com",
+  projectId: "workfromhome-1dbf3",
+  storageBucket: "workfromhome-1dbf3.firebasestorage.app",
+  messagingSenderId: "654600653492",
+  appId: "1:654600653492:web:7330be1fb91c597385a5e1"
+};
 
-  let _db = null;
-  let _realtimeListeners = {};
-
-  function getDb(){
-    if(!_db){
-      try{
-        const app = initializeApp(firebaseConfig);
-        _db = getDatabase(app);
-      }catch(e){ _db = null; }
-    }
-    return _db;
-  }
-
-  // Expose Firebase helpers to global scope
-  window._fbGet = async function(key){
-    try{
-      const db = getDb();
-      if(!db) return null;
-      const snap = await get(ref(db, 'worklog/' + key));
-      return snap.exists() ? snap.val() : null;
-    }catch(e){ return null; }
-  };
-  window._fbSet = async function(key, value){
-    try{
-      const db = getDb();
-      if(!db) return false;
-      await set(ref(db, 'worklog/' + key), value);
-      return true;
-    }catch(e){ return false; }
-  };
-  window._fbListen = function(key, callback){
-    try{
-      const db = getDb();
-      if(!db) return;
-      const r = ref(db, 'worklog/' + key);
-      if(_realtimeListeners[key]) off(r, 'value', _realtimeListeners[key]);
-      const handler = (snap) => { if(snap.exists()) callback(snap.val()); };
-      _realtimeListeners[key] = handler;
-      onValue(r, handler);
-    }catch(e){}
-  };
+let db = null;
+try {
+  const app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  window._firestore = db;
+  window._fsDoc = doc;
+  window._fsGetDoc = getDoc;
+  window._fsSetDoc = setDoc;
+  window._fsOnSnapshot = onSnapshot;
+  window._fsCollection = collection;
   window._firebaseReady = true;
-  // Signal to the app that Firebase module is loaded
-  if(window._onFirebaseReady) window._onFirebaseReady();
+} catch(e) {
+  console.warn("Firebase init failed — falling back to localStorage.", e);
+  window._firebaseReady = false;
+}
 </script>
-<!-- Cross-device sync via Firebase Realtime Database -->
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -212,7 +189,10 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
 /* dept filter search */
 .dept-search{padding:5px 10px;font-size:12px;width:160px}
 
-/* ── TOAST ── */
+/* ── FIREBASE SETUP BANNER ── */
+.firebase-banner{background:#fff7ed;border:1.5px solid #fb923c;border-radius:10px;padding:14px 18px;margin-bottom:1.25rem;font-size:13px;color:#7c2d12;line-height:1.6}
+.firebase-banner strong{display:block;font-size:14px;margin-bottom:4px;color:#9a3412}
+.firebase-banner a{color:#ea580c;font-weight:500}
 .toast{position:fixed;top:20px;right:20px;background:var(--brand);color:white;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;opacity:0;transform:translateY(-10px);transition:all 0.3s;pointer-events:none;z-index:999}
 .toast.show{opacity:1;transform:translateY(0)}
 
@@ -349,51 +329,6 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
 .reg-status-pending{background:#fef9c3;color:#92400e;border:0.5px solid #fde68a}
 .reg-status-approved{background:#dcfce7;color:#166534;border:0.5px solid #86efac}
 .reg-status-rejected{background:#fee2e2;color:#991b1b;border:0.5px solid #fca5a5}
-
-/* ── MOBILE RESPONSIVE ── */
-@media(max-width:768px){
-  .topbar{padding:0 1rem;height:auto;min-height:56px;flex-wrap:wrap;gap:8px;padding-top:10px;padding-bottom:10px}
-  .topbar-right{width:100%;justify-content:space-between}
-  .nav{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
-  .nav-btn{white-space:nowrap;font-size:12px;padding:5px 10px}
-  .app-content{padding:1rem}
-  .form-grid{grid-template-columns:1fr}
-  .form-group.full{grid-column:1}
-  .tasks-table-head{display:none}
-  .task-row{grid-template-columns:24px 1fr 28px;grid-template-rows:auto auto;gap:6px}
-  .task-row .category-select{grid-column:1/3}
-  .task-row .task-hrs{width:80px}
-  .stats-row{grid-template-columns:1fr 1fr}
-  .two-col{grid-template-columns:1fr}
-  .two-col-mgmt{grid-template-columns:1fr}
-  .dh-stats{grid-template-columns:1fr}
-  .view-meta-grid{grid-template-columns:1fr}
-  .sub-table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap}
-  .form-footer{flex-direction:column;gap:10px;align-items:stretch}
-  .btn-submit{width:100%;text-align:center}
-  .user-pill .user-role{display:none}
-  .logo-sub{display:none}
-  .hist-card .sub-table th:nth-child(4),.hist-card .sub-table td:nth-child(4){display:none}
-  .approve-card .sub-table th:nth-child(4),.approve-card .sub-table td:nth-child(4){display:none}
-  .modal{max-width:95vw!important}
-  .role-select-group{flex-wrap:wrap}
-  .role-chip{flex:none;width:calc(50% - 4px)}
-  .users-grid{grid-template-columns:1fr}
-  .hist-header,.sub-header{flex-direction:column;align-items:flex-start}
-  .filter-row{flex-wrap:wrap}
-  .users-panel-head{flex-direction:column;align-items:flex-start}
-  .login-card{margin:0.5rem}
-}
-@media(max-width:480px){
-  .stats-row{grid-template-columns:1fr}
-  .stat-val{font-size:20px}
-  .topbar .logo-text{font-size:14px}
-  .task-row{grid-template-columns:20px 1fr 28px}
-  .view-task-item{grid-template-columns:1fr 60px}
-  .view-task-cat{display:none}
-  .modal-body{padding:1rem}
-  .modal-footer{padding:0.75rem 1rem}
-}
 </style>
 </head>
 <body>
@@ -402,12 +337,6 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
 <div class="loading-overlay" id="loadingOverlay">
   <div class="loading-spinner"></div>
   <div class="loading-text">Loading shared workspace…</div>
-</div>
-
-<!-- Firebase Setup Banner (shown if Firebase not configured) -->
-<div id="firebaseSetupBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#1a6b5c;color:white;padding:10px 16px;font-size:12px;z-index:9998;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-  <span>⚠️ <strong>Running in local mode</strong> — data is saved only on this device. To enable cross-device sync, configure Firebase. <a href="https://console.firebase.google.com/" target="_blank" style="color:#a7f3d0;text-decoration:underline">Set up Firebase →</a></span>
-  <button onclick="document.getElementById('firebaseSetupBanner').style.display='none'" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-family:inherit;white-space:nowrap">Got it</button>
 </div>
 
 <!-- ══ LOGIN SCREEN ══ -->
@@ -475,7 +404,7 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
     </div>
   </div>
 
-  <div class="app-content">
+  <div class="app-content" id="appContent">
 
     <!-- ── SUBMIT FORM ── -->
     <div class="form-view visible" id="formView">
@@ -988,51 +917,60 @@ const CAT_BG = {
 const AVATAR_COLORS = ['#1a6b5c','#2563eb','#7c3aed','#dc2626','#ea580c','#0891b2'];
 
 // ── PERSISTENT SHARED STORAGE ────────────────────────────
-// Uses Firebase Realtime Database for true cross-device sync.
-// Falls back to localStorage if Firebase is unavailable (offline/no config).
+// Uses Firebase Firestore for real cross-device / cross-browser cloud sync.
+// Falls back to localStorage when Firebase is not configured.
 const SYNC_INTERVAL_MS = 8000;
 let syncTimer = null;
 let isSyncing = false;
 let lastSyncTs = null;
 
-// Wait for Firebase module to be ready
-let _fbReadyPromise = new Promise(resolve => {
-  if(window._firebaseReady){ resolve(); }
-  else { window._onFirebaseReady = resolve; setTimeout(resolve, 3000); } // 3s timeout
-});
-
 // ── STORAGE HELPERS ───────────────────────────────────────
 async function _get(key){
-  await _fbReadyPromise;
   // Try Firebase first
-  try{
-    if(window._fbGet){
-      const val = await window._fbGet(key);
-      if(val != null){
-        // Cache locally
-        try{ localStorage.setItem('wl_'+key, typeof val === 'string' ? val : JSON.stringify(val)); }catch(e){}
-        return typeof val === 'string' ? val : JSON.stringify(val);
+  if(window._firebaseReady){
+    try{
+      const ref = window._fsDoc(window._firestore, 'worklog', key);
+      const snap = await window._fsGetDoc(ref);
+      if(snap.exists()){
+        const val = snap.data().value;
+        try{ localStorage.setItem(key, val); }catch(e){}
+        return val;
       }
-    }
-  }catch(e){}
-  // Fallback: localStorage (per-device only)
-  return localStorage.getItem('wl_'+key) || localStorage.getItem(key);
+    }catch(e){ console.warn('Firestore read failed', e); }
+  }
+  // Fallback: localStorage
+  return localStorage.getItem(key);
 }
+
 async function _set(key, value){
-  // Always write to localStorage as cache/fallback
-  try{ localStorage.setItem('wl_'+key, value); }catch(e){}
-  // Write to Firebase for cross-device sync
-  await _fbReadyPromise;
+  // Always write localStorage as a fast local cache
+  try{ localStorage.setItem(key, value); }catch(e){}
+  // Write to Firestore for cloud sync
+  if(window._firebaseReady){
+    try{
+      const ref = window._fsDoc(window._firestore, 'worklog', key);
+      await window._fsSetDoc(ref, { value, updatedAt: Date.now() });
+    }catch(e){ console.warn('Firestore write failed', e); }
+  }
+}
+
+// ── REALTIME LISTENER ─────────────────────────────────────
+// Automatically refreshes the UI whenever ANY device changes data in Firestore.
+let _realtimeUnsub = null;
+function startRealtimeListener(){
+  if(!window._firebaseReady) return;
+  if(_realtimeUnsub) _realtimeUnsub();
   try{
-    if(window._fbSet){
-      await window._fbSet(key, value);
-      return;
-    }
-  }catch(e){ console.warn('Firebase write failed, using local only', e); }
-  // Also try legacy window.storage (Claude artifact context)
-  try{
-    if(window.storage){ await window.storage.set(key, value, true); }
+    const col = window._fsCollection(window._firestore, 'worklog');
+    _realtimeUnsub = window._fsOnSnapshot(col, ()=>{
+      // Debounce: ignore if a local write just triggered this
+      if(isSyncing) return;
+      syncFromServer(true);
+    });
   }catch(e){}
+}
+function stopRealtimeListener(){
+  if(_realtimeUnsub){ _realtimeUnsub(); _realtimeUnsub=null; }
 }
 
 // ── DATA FUNCTIONS ────────────────────────────────────────
@@ -1089,13 +1027,7 @@ async function saveCompanies(){
 }
 async function saveCompanyInfo(){ await saveCompanies(); }
 
-function broadcastChange(type){
-  try{ new BroadcastChannel('worklog_sync').postMessage({type,ts:Date.now()}); }catch(e){}
-}
-// Listen for same-browser tab changes
-try{
-  new BroadcastChannel('worklog_sync').onmessage = async()=>{ await syncFromServer(true); };
-}catch(e){}
+// Cross-tab and cross-device sync is now handled by the Firestore realtime listener in startRealtimeListener().
 
 function populateAllCompanySelects(){
   const opts = companies.map(c=>`<option value="${c.name}">${c.name}</option>`).join('');
@@ -1139,9 +1071,7 @@ function updateSyncIndicator(state){
   const el = document.getElementById('syncStatus');
   if(!el) return;
   const now = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  const hasFirebase = !!(window._fbGet);
-  const hasShared = !!(window.storage);
-  const liveLabel = hasFirebase ? '☁ Firebase' : hasShared ? 'Synced' : 'Local';
+  const liveLabel = window._firebaseReady ? 'Cloud Synced' : 'Local Only';
   if(state==='syncing'){
     el.innerHTML=`<span class="sync-dot syncing"></span> Syncing…`;
     el.style.color='#f59e0b';
@@ -1150,7 +1080,7 @@ function updateSyncIndicator(state){
     el.innerHTML=`<span class="sync-dot live"></span> ${liveLabel} · ${now}`;
     el.style.color='#16a34a';
   } else if(state==='error'){
-    el.innerHTML=`<span class="sync-dot error"></span> Sync error`;
+    el.innerHTML=`<span class="sync-dot error"></span> Sync error — check Firebase config`;
     el.style.color='#dc2626';
   } else {
     el.innerHTML=`<span class="sync-dot live"></span> ${liveLabel} · ${now}`;
@@ -1203,10 +1133,12 @@ async function syncFromServer(silent){
 
 function startSyncTimer(){
   stopSyncTimer();
+  startRealtimeListener();
   syncTimer = setInterval(()=>syncFromServer(true), SYNC_INTERVAL_MS);
 }
 function stopSyncTimer(){
   if(syncTimer){ clearInterval(syncTimer); syncTimer=null; }
+  stopRealtimeListener();
 }
 
 let submissions = [];
@@ -1219,7 +1151,6 @@ let pendingRejectId = null;
 
 // Bootstrap: load shared data before showing the login screen
 (async()=>{
-  await _fbReadyPromise;
   try{
     [submissions, regRequests, dynamicUsers, departments, companyInfo] = await Promise.all([
       loadSubmissions(), loadRegRequests(), loadDynamicUsers(), loadDepartments(), loadCompanyInfo()
@@ -1228,14 +1159,6 @@ let pendingRejectId = null;
   } catch(e){ submissions=[]; regRequests=[]; dynamicUsers=[]; departments=[...DEFAULT_DEPTS]; companyInfo={name:'',logo:''}; companies=[]; }
   populateAllDeptSelects();
   populateAllCompanySelects();
-  // Show Firebase banner if not connected (demo config)
-  const hasFb = window._fbGet && window._firebaseReady;
-  const banner = document.getElementById('firebaseSetupBanner');
-  if(banner){
-    // Check if it's using the demo placeholder config
-    banner.style.display = 'flex';
-    setTimeout(()=>{ if(banner) banner.style.display='none'; }, 8000);
-  }
   // Hide loading overlay and show login
   const overlay = document.getElementById('loadingOverlay');
   if(overlay) overlay.style.display='none';
@@ -1278,6 +1201,19 @@ async function doLogin(){
   document.getElementById('appShell').classList.add('visible');
   setupUserUI();
   initApp();
+  // Show Firebase setup banner if not configured
+  const existingBanner = document.getElementById('firebaseBanner');
+  if(!window._firebaseReady && !existingBanner){
+    const banner = document.createElement('div');
+    banner.id = 'firebaseBanner';
+    banner.className = 'firebase-banner';
+    banner.innerHTML = `<strong>⚠️ Cloud Sync Not Active — Data is local only</strong>
+      To enable cross-device sync, set up a free Firebase project and paste your config into this file.<br>
+      <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a> →
+      New Project → Firestore Database (test mode) → Project Settings → Web App → copy config →
+      replace the <code>REPLACE_WITH_YOUR_*</code> values near the top of this HTML file.`;
+    document.getElementById('appContent').prepend(banner);
+  }
   startSyncTimer();
   updateSyncIndicator('ok');
 }
