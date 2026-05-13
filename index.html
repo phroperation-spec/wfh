@@ -874,13 +874,15 @@ const CAT_BG = {
 };
 const AVATAR_COLORS = ['#1a6b5c','#2563eb','#7c3aed','#dc2626','#ea580c','#0891b2'];
 
-// ── PERSISTENT SHARED STORAGE ────────────────────────────
-// Uses window.storage (shared: true) — built-in artifact storage that syncs
-// across ALL devices and users automatically. No Firebase or API keys needed.
-const SYNC_INTERVAL_MS = 5000;
-let syncTimer = null;
-let isSyncing = false;
-let lastSyncTs = null;
+const firebaseConfig = {
+  apiKey: "AIzaSy...",
+  authDomain: "yourproject.firebaseapp.com",
+  databaseURL: "https://yourproject-default-rtdb.firebaseio.com",
+  projectId: "yourproject",
+  storageBucket: "yourproject.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "1:123456789:web:abc123"
+};
 
 // ── STORAGE HELPERS ───────────────────────────────────────
 // Reads from shared artifact storage (visible to all users/devices).
@@ -2043,7 +2045,7 @@ function showToast(msg,type){
       <button class="modal-close" onclick="closeCompanyModal()" style="color:rgba(255,255,255,0.7)">✕</button>
     </div>
     <div class="modal-body">
-      <div style="display:grid;gap:12px">
+      <div style="display:grid;gap:12px">G
         <div class="form-group">
           <label>Company Name <span style="color:#ef4444">*</span></label>
           <input type="text" id="cmpModalName" placeholder="e.g. Primary School Foundation, Inc." autocomplete="off"/>
