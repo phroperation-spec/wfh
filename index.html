@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>WorkLog — WFH Output Tracker</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<!-- Firebase v10 compat -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -873,58 +876,62 @@ const CAT_BG = {
 };
 const AVATAR_COLORS = ['#1a6b5c','#2563eb','#7c3aed','#dc2626','#ea580c','#0891b2'];
 
-// ── PERSISTENT SHARED STORAGE ─────────────────────────────
-// Uses window.storage (shared=true) so all data syncs across ALL devices & users via internet.
-const STORAGE_KEY = 'worklog_submissions_v2';
-const REG_KEY = 'worklog_reg_requests_v1';
-const DEPT_KEY = 'worklog_departments_v1';
-const COMPANY_KEY = 'worklog_company_v1';
-const SYNC_INTERVAL_MS = 3000; // poll every 3 seconds for real-time cross-device sync
+// ── PERSISTENT SHARED STORAGE ────────────────────────────
+// localStorage keeps data on this device; Firebase Firestore syncs across all devices.
+// To enable cross-device sync: fill in your Firebase config below.
+// Free setup: console.firebase.google.com → create project → Firestore → start in test mode.
+const SYNC_INTERVAL_MS = 4000;
 let syncTimer = null;
 let isSyncing = false;
 let lastSyncTs = null;
+let _db = null;
 
-// ── BROADCAST CHANNEL (instant same-browser/tab sync) ────
-let _bc = null;
-try { _bc = new BroadcastChannel('worklog_sync'); } catch(e) {}
-function broadcastChange(type){
-  try { if(_bc) _bc.postMessage({type, ts: Date.now()}); } catch(e) {}
-}
-if(_bc){
-  _bc.onmessage = async (ev) => {
-    await syncFromServer(true);
-  };
-}
+// ── FIREBASE CONFIG (fill in your own project) ────────────
+const FIREBASE_CFG = {
+  apiKey: "",           // ← paste your Firebase apiKey here
+  projectId: ""         // ← paste your projectId here  e.g. "my-worklog-app"
+};
+const USE_FIREBASE = !!(FIREBASE_CFG.apiKey && FIREBASE_CFG.projectId);
 
-// ── SHARED STORAGE HELPERS ────────────────────────────────
-async function sharedGet(key){
+if(USE_FIREBASE){
   try{
-    const res = await window.storage.get(key, true);
-    return res ? JSON.parse(res.value) : null;
-  }catch(e){ return null; }
-}
-async function sharedSet(key, value){
-  try{
-    await window.storage.set(key, JSON.stringify(value), true);
-    return true;
-  }catch(e){ return false; }
+    if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CFG);
+    _db = firebase.firestore();
+  }catch(e){ console.warn('Firebase init failed, using localStorage fallback', e); }
 }
 
+// ── STORAGE HELPERS ───────────────────────────────────────
+// Always write to localStorage immediately (instant local persistence).
+// If Firebase is configured, also write there (cross-device sync).
+async function _get(key){
+  if(_db){
+    try{
+      const snap = await _db.collection('worklog').doc(key).get();
+      if(snap.exists){ const val = snap.data().data; localStorage.setItem(key, val); return val; }
+    }catch(e){}
+  }
+  return localStorage.getItem(key);
+}
+async function _set(key, value){
+  localStorage.setItem(key, value);          // always local-first
+  if(_db){
+    try{ await _db.collection('worklog').doc(key).set({ data: value }); }catch(e){}
+  }
+}
+
+// ── DATA FUNCTIONS ────────────────────────────────────────
 async function loadSubmissions(){
-  try{ return (await sharedGet(STORAGE_KEY)) || []; }catch(e){ return []; }
+  try{ const d = await _get('submissions'); return d ? JSON.parse(d) : []; }catch(e){ return []; }
 }
 async function saveSubmissions(){
-  try{
-    const ok = await sharedSet(STORAGE_KEY, submissions);
-    if(ok){ broadcastChange('submissions'); updateSyncIndicator('saved'); }
-    else { updateSyncIndicator('error'); }
-  }catch(e){ updateSyncIndicator('error'); }
+  try{ await _set('submissions', JSON.stringify(submissions)); updateSyncIndicator('saved'); }
+  catch(e){ updateSyncIndicator('error'); }
 }
 async function loadRegRequests(){
-  try{ return (await sharedGet(REG_KEY)) || []; }catch(e){ return []; }
+  try{ const d = await _get('reg_requests'); return d ? JSON.parse(d) : []; }catch(e){ return []; }
 }
 async function saveRegRequests(){
-  try{ await sharedSet(REG_KEY, regRequests); broadcastChange('regRequests'); }catch(e){}
+  try{ await _set('reg_requests', JSON.stringify(regRequests)); }catch(e){}
 }
 
 // ── DEPARTMENTS ───────────────────────────────────────────
@@ -932,44 +939,47 @@ const DEFAULT_DEPTS = ['SHS','SKILLS','SEAMAN','PSEFI','PSI','COOP','HR'];
 let departments = [...DEFAULT_DEPTS];
 
 async function loadDepartments(){
-  try{ return (await sharedGet(DEPT_KEY)) || [...DEFAULT_DEPTS]; }catch(e){ return [...DEFAULT_DEPTS]; }
+  try{ const d = await _get('departments'); return d ? JSON.parse(d) : [...DEFAULT_DEPTS]; }catch(e){ return [...DEFAULT_DEPTS]; }
 }
 async function saveDepartments(){
-  try{ await sharedSet(DEPT_KEY, departments); broadcastChange('departments'); populateAllDeptSelects(); }catch(e){}
+  try{ await _set('departments', JSON.stringify(departments)); populateAllDeptSelects(); }catch(e){}
 }
 
-// ── COMPANY INFO (multi-company array) ───────────────────
-let companyInfo = { name: 'Primary School Foundation, Inc.', address: '', email: '', phone: '', logo: '' };
+// ── COMPANIES ─────────────────────────────────────────────
+let companyInfo = { name: '', logo: '' };
 let companies = [];
 
-async function loadCompanyInfo(){
-  try{
-    const parsed = await sharedGet(COMPANY_KEY);
-    if(!parsed) return { name: 'Primary School Foundation, Inc.', address: '', email: '', phone: '', logo: '' };
-    if(Array.isArray(parsed)){ companies = parsed; return parsed[0] || { name:'', address:'', email:'', phone:'', logo:'' }; }
-    return parsed;
-  }catch(e){ return { name: 'Primary School Foundation, Inc.', address: '', email: '', phone: '', logo: '' }; }
-}
 async function loadCompanies(){
   try{
-    const parsed = await sharedGet(COMPANY_KEY);
-    if(!parsed) return [];
+    const d = await _get('companies');
+    if(!d) return [];
+    const parsed = JSON.parse(d);
     if(Array.isArray(parsed)) return parsed;
-    if(parsed && parsed.name) return [{ id: 'mig_'+Date.now(), name:parsed.name, email:parsed.email||'', phone:parsed.phone||'', address:parsed.address||'' }];
+    if(parsed && parsed.name) return [{ id: 'mig_'+Date.now(), name: parsed.name }];
     return [];
   }catch(e){ return []; }
 }
+async function loadCompanyInfo(){
+  const list = await loadCompanies();
+  companies = list;
+  return list[0] || { name: '', logo: '' };
+}
 async function saveCompanies(){
   try{
-    await sharedSet(COMPANY_KEY, companies);
-    broadcastChange('company');
+    await _set('companies', JSON.stringify(companies));
     renderCompanyPanel();
     populateAllCompanySelects();
-  }catch(e){}
+  }catch(e){ console.error('saveCompanies failed', e); }
 }
-async function saveCompanyInfo(){
-  await saveCompanies();
+async function saveCompanyInfo(){ await saveCompanies(); }
+
+function broadcastChange(type){
+  try{ new BroadcastChannel('worklog_sync').postMessage({type,ts:Date.now()}); }catch(e){}
 }
+// Listen for same-browser tab changes
+try{
+  new BroadcastChannel('worklog_sync').onmessage = async()=>{ await syncFromServer(true); };
+}catch(e){}
 
 function populateAllCompanySelects(){
   const opts = companies.map(c=>`<option value="${c.name}">${c.name}</option>`).join('');
@@ -1018,13 +1028,13 @@ function updateSyncIndicator(state){
     el.style.color='#f59e0b';
   } else if(state==='saved'){
     lastSyncTs = now;
-    el.innerHTML=`<span class="sync-dot live"></span> Synced · ${now}`;
+    el.innerHTML=`<span class="sync-dot live"></span> Live · ${now}`;
     el.style.color='#16a34a';
   } else if(state==='error'){
     el.innerHTML=`<span class="sync-dot error"></span> Sync error`;
     el.style.color='#dc2626';
   } else {
-    el.innerHTML=`<span class="sync-dot live"></span> Synced · ${now}`;
+    el.innerHTML=`<span class="sync-dot live"></span> Live · ${now}`;
     el.style.color='#16a34a';
   }
 }
@@ -1034,15 +1044,15 @@ async function syncFromServer(silent){
   isSyncing = true;
   if(!silent) updateSyncIndicator('syncing');
   try{
-    const [newSubs, newRegs, newDynUsers, newDepts, newCompany, newCompanies] = await Promise.all([
-      loadSubmissions(), loadRegRequests(), loadDynamicUsers(), loadDepartments(), loadCompanyInfo(), loadCompanies()
+    const [newSubs, newRegs, newDynUsers, newDepts, newCompany] = await Promise.all([
+      loadSubmissions(), loadRegRequests(), loadDynamicUsers(), loadDepartments(), loadCompanyInfo()
     ]);
     submissions = newSubs;
     regRequests = newRegs;
     dynamicUsers = newDynUsers;
     departments = newDepts;
     companyInfo = newCompany;
-    companies = newCompanies;
+    // companies already set by loadCompanyInfo()
     populateAllDeptSelects();
     populateAllCompanySelects();
     // Re-render whatever view is active
@@ -1094,8 +1104,8 @@ let pendingRejectId = null;
     [submissions, regRequests, dynamicUsers, departments, companyInfo] = await Promise.all([
       loadSubmissions(), loadRegRequests(), loadDynamicUsers(), loadDepartments(), loadCompanyInfo()
     ]);
-    companies = await loadCompanies();
-  } catch(e){ submissions=[]; regRequests=[]; dynamicUsers=[]; departments=[...DEFAULT_DEPTS]; companyInfo={name:'Primary School Foundation, Inc.',address:'',email:'',phone:'',logo:''}; companies=[]; }
+    // companies array is already populated inside loadCompanyInfo()
+  } catch(e){ submissions=[]; regRequests=[]; dynamicUsers=[]; departments=[...DEFAULT_DEPTS]; companyInfo={name:'',logo:''}; companies=[]; }
   populateAllDeptSelects();
   populateAllCompanySelects();
   // Hide loading overlay and show login
@@ -1720,14 +1730,12 @@ async function rejectRegRequest(id){
 }
 
 // ── ADD USER (ADMIN) ──────────────────────────────────────
-let dynamicUsers = []; // admin-added users persist in shared storage (cross-device)
-const DYN_USERS_KEY = 'worklog_dynamic_users_v1';
-
+let dynamicUsers = []; // admin-added users persist in shared storage
 async function loadDynamicUsers(){
-  try{ return (await sharedGet(DYN_USERS_KEY)) || []; }catch(e){ return []; }
+  try{ const d = await _get('dynamic_users'); return d ? JSON.parse(d) : []; }catch(e){ return []; }
 }
 async function saveDynamicUsers(){
-  try{ await sharedSet(DYN_USERS_KEY, dynamicUsers); broadcastChange('dynamicUsers'); }catch(e){}
+  try{ await _set('dynamic_users', JSON.stringify(dynamicUsers)); }catch(e){}
 }
 
 function openAddUserModal(){
@@ -1868,13 +1876,8 @@ function renderCompanyPanel(){
   }
   el.innerHTML = companies.map((c,i) => `
     <div style="border:0.5px solid var(--border);border-radius:9px;padding:11px 13px;margin-bottom:8px;background:var(--bg)">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px">${escH(c.name)}</div>
-          ${c.email ? `<div style="font-size:12px;color:var(--muted)">✉ ${escH(c.email)}</div>` : ''}
-          ${c.phone ? `<div style="font-size:12px;color:var(--muted)">📞 ${escH(c.phone)}</div>` : ''}
-          ${c.address ? `<div style="font-size:12px;color:var(--muted)">📍 ${escH(c.address)}</div>` : ''}
-        </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div style="font-size:14px;font-weight:600;color:var(--text)">${escH(c.name)}</div>
         <div style="display:flex;gap:5px;flex-shrink:0">
           <button onclick="openCompanyModal('${c.id}')" style="background:var(--brand-light);color:var(--brand);border:0.5px solid var(--brand-mid);padding:4px 10px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif">✏️ Edit</button>
           <button onclick="deleteCompany('${c.id}')" style="background:#fee2e2;color:#991b1b;border:0.5px solid #fca5a5;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif">🗑</button>
@@ -1892,11 +1895,7 @@ function openCompanyModal(id){
   const modal = document.getElementById('companyModal');
   document.getElementById('companyModalTitle').textContent = c ? 'Edit Company' : 'Add Company';
   document.getElementById('cmpModalError').style.display = 'none';
-  // Set fields via JS — never via HTML attribute — so typing is never blocked
-  document.getElementById('cmpModalName').value    = c ? c.name    : '';
-  document.getElementById('cmpModalEmail').value   = c ? c.email   : '';
-  document.getElementById('cmpModalPhone').value   = c ? c.phone   : '';
-  document.getElementById('cmpModalAddress').value = c ? c.address : '';
+  document.getElementById('cmpModalName').value = c ? c.name : '';
   modal.classList.add('show');
   setTimeout(()=>document.getElementById('cmpModalName').focus(), 80);
 }
@@ -1908,17 +1907,14 @@ function closeCompanyModal(){
 
 async function saveCompanyModal(){
   const name    = document.getElementById('cmpModalName').value.trim();
-  const email   = document.getElementById('cmpModalEmail').value.trim();
-  const phone   = document.getElementById('cmpModalPhone').value.trim();
-  const address = document.getElementById('cmpModalAddress').value.trim();
   const errEl   = document.getElementById('cmpModalError');
   if(!name){ errEl.textContent='Company name is required.'; errEl.style.display='block'; return; }
   errEl.style.display='none';
   if(_editingCompanyId){
     const c = companies.find(x=>x.id===_editingCompanyId);
-    if(c){ c.name=name; c.email=email; c.phone=phone; c.address=address; }
+    if(c){ c.name=name; }
   } else {
-    companies.push({ id: 'cmp_'+Date.now(), name, email, phone, address });
+    companies.push({ id: 'cmp_'+Date.now(), name });
   }
   closeCompanyModal();
   await saveCompanies();
@@ -2058,22 +2054,10 @@ function showToast(msg,type){
       <button class="modal-close" onclick="closeCompanyModal()" style="color:rgba(255,255,255,0.7)">✕</button>
     </div>
     <div class="modal-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div class="form-group" style="grid-column:1/-1">
+      <div style="display:grid;gap:12px">
+        <div class="form-group">
           <label>Company Name <span style="color:#ef4444">*</span></label>
           <input type="text" id="cmpModalName" placeholder="e.g. Primary School Foundation, Inc." autocomplete="off"/>
-        </div>
-        <div class="form-group">
-          <label>Email</label>
-          <input type="text" id="cmpModalEmail" placeholder="info@company.com" autocomplete="off"/>
-        </div>
-        <div class="form-group">
-          <label>Phone</label>
-          <input type="text" id="cmpModalPhone" placeholder="+63 2 XXXX XXXX" autocomplete="off"/>
-        </div>
-        <div class="form-group" style="grid-column:1/-1">
-          <label>Address</label>
-          <input type="text" id="cmpModalAddress" placeholder="Street, City, Province" autocomplete="off"/>
         </div>
       </div>
       <div id="cmpModalError" style="font-size:13px;color:#dc2626;background:#fef2f2;border:0.5px solid #fca5a5;padding:8px 12px;border-radius:7px;margin-top:10px;display:none"></div>
