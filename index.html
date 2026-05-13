@@ -307,6 +307,18 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
 .btn-remove-user{background:transparent;border:none;cursor:pointer;color:#d1d5db;font-size:14px;padding:2px;line-height:1;margin-left:auto;transition:color 0.15s;flex-shrink:0}
 .btn-remove-user:hover{color:#ef4444}
 .user-card{justify-content:flex-start}
+/* ── RESET PASSWORD BUTTON ── */
+.btn-reset-pw{background:#fff7ed;border:0.5px solid #fdba74;color:#c2410c;font-size:11px;padding:2px 7px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s}
+.btn-reset-pw:hover{background:#ffedd5}
+/* ── PDF DOWNLOAD BUTTON ── */
+.btn-pdf{background:#eff6ff;color:#1d4ed8;border:0.5px solid #93c5fd;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s}
+.btn-pdf:hover{background:#dbeafe}
+/* ── PDF PRINT STYLES ── */
+@media print{
+  body *{visibility:hidden}
+  #pdfPrintArea,#pdfPrintArea *{visibility:visible}
+  #pdfPrintArea{position:fixed;left:0;top:0;width:100%;padding:24px;background:white;font-family:'DM Sans',sans-serif;font-size:13px}
+}
 
 /* ── DEPT & COMPANY MANAGEMENT ── */
 .dept-item{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border:0.5px solid var(--border);border-radius:8px;background:var(--bg);margin-bottom:6px}
@@ -774,6 +786,7 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
     </div>
     <div class="modal-footer">
       <button class="btn-modal-cancel" onclick="closeViewModal()">Close</button>
+      <button id="viewModalPdfBtn" class="btn-pdf" style="display:none">⬇ Download PDF</button>
     </div>
   </div>
 </div>
@@ -1382,7 +1395,7 @@ function renderHistory(){
       <td><span class="badge ${meta.cls}"><span class="badge-dot"></span>${meta.label}</span></td>
       <td>${apprEl}</td>
       <td>${fmtSubmitTime(s.submittedAt)}</td>
-      <td><button class="btn-view" onclick="openViewModal('${s.id}')">View</button></td>
+      <td><button class="btn-view" onclick="openViewModal('${s.id}')">View</button>${(s.approval==='approved'||s.execApproval==='exec_approved')?` <button class="btn-pdf" onclick="downloadSubmissionPDF('${s.id}')">⬇ PDF</button>`:''}</td>
     </tr>`;
   }).join('');
 }
@@ -1507,7 +1520,7 @@ function renderTable(filter){
       <td><span class="badge ${meta.cls}"><span class="badge-dot"></span>${meta.label}</span></td>
       <td>${(()=>{const a=s.approval||'pending';return a==='approved'?'<span class=\'approval-status-approved\'>✓ Approved</span>':a==='rejected'?'<span class=\'approval-status-rejected\'>✕ Rejected</span>':'<span class=\'approval-status-pending\'>⏳ Pending</span>';})()} </td>
       <td>${fmtSubmitTime(s.submittedAt)}</td>
-      <td><button class="btn-delete" onclick="deleteReport('${s.id}')">Delete</button> <button class="btn-view" onclick="openViewModal('${s.id}')">View</button></td>
+      <td><button class="btn-delete" onclick="deleteReport('${s.id}')">Delete</button> <button class="btn-view" onclick="openViewModal('${s.id}')">View</button>${(s.approval==='approved'||s.execApproval==='exec_approved')?` <button class="btn-pdf" onclick="downloadSubmissionPDF('${s.id}')">⬇ PDF</button>`:''}</td>
     </tr>`;
   }).join('');
 }
@@ -1559,7 +1572,7 @@ function renderApproveTable(){
     const tagsHTML=s.tasks.slice(0,3).map(t=>`<span class="hrs-tag" style="background:${CAT_BG[t.cat]||'#f3f4f6'};color:${CAT_COLORS[t.cat]||'#374151'}">${t.cat} ${t.hrs%1===0?t.hrs:t.hrs.toFixed(1)}h</span>`).join('');
     const appr=s.approval||'pending';
     const apprEl=appr==='approved'?`<span class="approval-status-approved">✓ Approved</span>`:appr==='rejected'?`<span class="approval-status-rejected">✕ Rejected</span>`:`<span class="approval-status-pending">⏳ Pending</span>`;
-    const actionEl=appr==='pending'?`<button class="btn-approve" onclick="approveReport('${s.id}')">Approve</button><button class="btn-reject" onclick="openRejectModal('${s.id}')">Reject</button> <button class="btn-view" onclick="openViewModal('${s.id}')">View</button>`:`<button class="btn-view" onclick="openViewModal('${s.id}')">View</button><span style="font-size:11px;color:var(--muted);margin-left:4px">${s.approvedBy?'by '+s.approvedBy:''}</span>`;
+    const actionEl=appr==='pending'?`<button class="btn-approve" onclick="approveReport('${s.id}')">Approve</button><button class="btn-reject" onclick="openRejectModal('${s.id}')">Reject</button> <button class="btn-view" onclick="openViewModal('${s.id}')">View</button>`:`<button class="btn-view" onclick="openViewModal('${s.id}')">View</button>${appr==='approved'?` <button class="btn-pdf" onclick="downloadSubmissionPDF('${s.id}')">⬇ PDF</button>`:''}<span style="font-size:11px;color:var(--muted);margin-left:4px">${s.approvedBy?'by '+s.approvedBy:''}</span>`;
     return `<tr>
       <td><div class="emp-cell"><div class="avatar" style="background:${col}22;color:${col}">${initials}</div><span style="font-weight:500">${s.name}</span></div></td>
       <td style="color:var(--muted)">${s.dept}</td>
@@ -1652,7 +1665,7 @@ function renderExecApproveTable(){
     const canAct = dhAppr === 'approved' && ea === 'pending';
     const actionEl = canAct
       ? `<button class="btn-approve" onclick="execApproveReport('${s.id}')">Approve</button><button class="btn-reject" onclick="openExecRejectModal('${s.id}')">Reject</button> <button class="btn-view" onclick="openViewModal('${s.id}')">View</button>`
-      : `<button class="btn-view" onclick="openViewModal('${s.id}')">View</button>`;
+      : `<button class="btn-view" onclick="openViewModal('${s.id}')">View</button>${ea==='exec_approved'?` <button class="btn-pdf" onclick="downloadSubmissionPDF('${s.id}')">⬇ PDF</button>`:''}`;
     return `<tr>
       <td><div class="emp-cell"><div class="avatar" style="background:${col}22;color:${col}">${initials}</div><span style="font-weight:500">${s.name}</span></div></td>
       <td style="color:var(--muted)">${s.dept}</td>
@@ -1892,6 +1905,41 @@ async function removeUser(username){
   showToast('User removed.','error');
 }
 
+// ── RESET PASSWORD (ADMIN) ────────────────────────────────
+let _resetPwUsername = null;
+function openResetPwModal(username){
+  const allUsers=[...ACCOUNTS,...dynamicUsers];
+  const user = allUsers.find(u=>u.username===username);
+  if(!user) return;
+  _resetPwUsername = username;
+  document.getElementById('resetPwUserLabel').textContent = `User: ${user.displayName} (${username})`;
+  document.getElementById('resetPwNew').value='';
+  document.getElementById('resetPwConfirm').value='';
+  document.getElementById('resetPwError').style.display='none';
+  document.getElementById('resetPwModal').classList.add('show');
+  setTimeout(()=>document.getElementById('resetPwNew').focus(),80);
+}
+function closeResetPwModal(){
+  document.getElementById('resetPwModal').classList.remove('show');
+  _resetPwUsername = null;
+}
+async function confirmResetPw(){
+  const newPw = document.getElementById('resetPwNew').value;
+  const confirmPw = document.getElementById('resetPwConfirm').value;
+  const errEl = document.getElementById('resetPwError');
+  const showErr = msg=>{errEl.textContent=msg;errEl.style.display='block';};
+  if(!newPw){showErr('Please enter a new password.');return;}
+  if(newPw.length<4){showErr('Password must be at least 4 characters.');return;}
+  if(newPw!==confirmPw){showErr('Passwords do not match.');return;}
+  // Update in dynamicUsers
+  const user = dynamicUsers.find(u=>u.username===_resetPwUsername);
+  if(!user){showErr('User not found in dynamic users (static admin accounts cannot be changed here).');return;}
+  user.password = newPw;
+  await saveDynamicUsers();
+  closeResetPwModal();
+  showToast(`Password reset for ${user.displayName}.`,'success');
+}
+
 // ── DEPT MANAGEMENT ──────────────────────────────────────
 function renderDeptPanel(){
   const el = document.getElementById('deptListBody');
@@ -2029,6 +2077,7 @@ function renderUsersGrid(){
       </div>
       <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
         ${isDynamic?`<button class="btn-edit-role" title="Edit role" onclick="openEditRoleModal('${a.username}')" style="background:var(--brand-light);border:0.5px solid var(--brand-mid);color:var(--brand);font-size:11px;padding:2px 7px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif">Edit</button>`:''}
+        ${isDynamic?`<button class="btn-reset-pw" title="Reset password" onclick="openResetPwModal('${a.username}')">🔑 Reset PW</button>`:''}
         ${isDynamic?`<button class="btn-remove-user" title="Remove user" onclick="removeUser('${a.username}')">✕</button>`:''}
       </div>
     </div>`;
@@ -2082,6 +2131,10 @@ function openViewModal(id){
     <div style="margin-top:12px;padding-top:10px;border-top:0.5px solid var(--border);font-size:11px;color:var(--muted);text-align:right">Submitted ${fmtSubmitTime(s.submittedAt)}</div>
   `;
   document.getElementById('viewModal').classList.add('show');
+  // Show PDF button only for approved submissions
+  const pdfBtn = document.getElementById('viewModalPdfBtn');
+  const isApproved = (s.approval==='approved' || s.execApproval==='exec_approved');
+  if(pdfBtn){ pdfBtn.style.display = isApproved ? '' : 'none'; pdfBtn.onclick = ()=>downloadSubmissionPDF(id); }
 }
 function closeViewModal(){document.getElementById('viewModal').classList.remove('show');}
 
@@ -2108,7 +2161,129 @@ function showToast(msg,type){
   t.style.background=type==='error'?'#ef4444':'var(--brand)';
   t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);
 }
+
+// ── PDF DOWNLOAD ──────────────────────────────────────────
+function downloadSubmissionPDF(id){
+  const s=submissions.find(x=>x.id===id);
+  if(!s) return;
+  const dateFmt=new Date(s.date+'T00:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  const submittedFmt=s.submittedAt?new Date(s.submittedAt).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',hour12:true}):'—';
+  const approvalLabel=s.execApproval==='exec_approved'?`✓ Executive Approved${s.execApprovedBy?' by '+s.execApprovedBy:''}`:
+    s.approval==='approved'?`✓ Dept Approved${s.approvedBy?' by '+s.approvedBy:''}`:
+    s.approval==='rejected'?`✕ Rejected`:
+    `⏳ Pending`;
+  const sm={done:'Completed',progress:'In Progress',blocked:'Blocked'};
+  const tasksRows=s.tasks.map((t,i)=>`
+    <tr>
+      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;color:#374151">${i+1}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;color:#111827">${t.desc||'—'}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;color:#374151">${t.cat}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;font-weight:600;color:#1a6b5c">${t.hrs%1===0?t.hrs:t.hrs.toFixed(1)}h</td>
+    </tr>`).join('');
+  const html=`
+    <div style="font-family:Arial,sans-serif;max-width:700px;margin:0 auto;color:#111827">
+      <div style="background:#1a6b5c;color:white;padding:24px 28px;border-radius:8px 8px 0 0;margin-bottom:0">
+        <div style="font-size:22px;font-weight:700;margin-bottom:2px">WorkLog — Daily Output Report</div>
+        <div style="font-size:13px;opacity:0.8">WFH Output Tracker &nbsp;·&nbsp; ${dateFmt}</div>
+      </div>
+      <div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;padding:24px 28px">
+        <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+          <tr>
+            <td style="padding:8px 12px;background:#f3f4f6;border-radius:6px;width:50%;vertical-align:top">
+              <div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Employee</div>
+              <div style="font-size:14px;font-weight:600">${s.name}</div>
+            </td>
+            <td style="width:12px"></td>
+            <td style="padding:8px 12px;background:#f3f4f6;border-radius:6px;width:50%;vertical-align:top">
+              <div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Department</div>
+              <div style="font-size:14px;font-weight:600">${s.dept}</div>
+            </td>
+          </tr>
+          <tr><td colspan="3" style="height:8px"></td></tr>
+          <tr>
+            <td style="padding:8px 12px;background:#f3f4f6;border-radius:6px;vertical-align:top">
+              <div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Work Date</div>
+              <div style="font-size:14px">${dateFmt}</div>
+            </td>
+            <td style="width:12px"></td>
+            <td style="padding:8px 12px;background:#f3f4f6;border-radius:6px;vertical-align:top">
+              <div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Hours Logged</div>
+              <div style="font-size:14px">${s.loggedTotal%1===0?s.loggedTotal:s.loggedTotal.toFixed(1)}h <span style="color:#6b7280;font-size:12px">/ ${s.totalHours}h expected</span></div>
+            </td>
+          </tr>
+          <tr><td colspan="3" style="height:8px"></td></tr>
+          <tr>
+            <td style="padding:8px 12px;background:#f3f4f6;border-radius:6px;vertical-align:top">
+              <div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Work Status</div>
+              <div style="font-size:14px">${sm[s.status]||'Completed'}</div>
+            </td>
+            <td style="width:12px"></td>
+            <td style="padding:8px 12px;background:#dcfce7;border-radius:6px;vertical-align:top">
+              <div style="font-size:10px;font-weight:600;color:#166534;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Approval Status</div>
+              <div style="font-size:14px;color:#166534;font-weight:600">${approvalLabel}</div>
+            </td>
+          </tr>
+        </table>
+        ${s.summary?`<div style="margin-bottom:18px"><div style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Summary / Notes</div><div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:12px 14px;font-size:13px;color:#374151;line-height:1.6">${s.summary}</div></div>`:''}
+        <div style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Activities (${s.tasks.length})</div>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden">
+          <thead>
+            <tr style="background:#f3f4f6">
+              <th style="padding:9px 10px;text-align:left;font-size:11px;color:#6b7280;text-transform:uppercase;border-bottom:1px solid #e5e7eb;width:30px">#</th>
+              <th style="padding:9px 10px;text-align:left;font-size:11px;color:#6b7280;text-transform:uppercase;border-bottom:1px solid #e5e7eb">Activity</th>
+              <th style="padding:9px 10px;text-align:left;font-size:11px;color:#6b7280;text-transform:uppercase;border-bottom:1px solid #e5e7eb;width:120px">Category</th>
+              <th style="padding:9px 10px;text-align:left;font-size:11px;color:#6b7280;text-transform:uppercase;border-bottom:1px solid #e5e7eb;width:70px">Hours</th>
+            </tr>
+          </thead>
+          <tbody>${tasksRows}</tbody>
+          <tfoot>
+            <tr style="background:#f9fafb">
+              <td colspan="3" style="padding:9px 10px;font-size:12px;font-weight:600;color:#374151;text-align:right;border-top:1px solid #e5e7eb">Total Logged:</td>
+              <td style="padding:9px 10px;font-size:13px;font-weight:700;color:#1a6b5c;border-top:1px solid #e5e7eb">${s.loggedTotal%1===0?s.loggedTotal:s.loggedTotal.toFixed(1)}h</td>
+            </tr>
+          </tfoot>
+        </table>
+        <div style="margin-top:18px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:right">
+          Submitted: ${submittedFmt} &nbsp;·&nbsp; Generated by WorkLog WFH Tracker
+        </div>
+      </div>
+    </div>`;
+  const printArea = document.getElementById('pdfPrintArea');
+  printArea.innerHTML = html;
+  printArea.style.display = 'block';
+  window.print();
+  setTimeout(()=>{ printArea.style.display='none'; printArea.innerHTML=''; }, 1000);
+}
 </script>
+
+<!-- Reset Password Modal (Admin) -->
+<div class="modal-overlay" id="resetPwModal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-head" style="background:#fff7ed;border-bottom:0.5px solid #fdba74">
+      <h4 style="color:#c2410c">🔑 Reset User Password</h4>
+      <button class="modal-close" onclick="closeResetPwModal()" style="color:#c2410c">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="resetPwUserLabel" style="font-size:14px;font-weight:500;color:var(--text);margin-bottom:14px"></p>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>New Password <span style="color:#ef4444">*</span></label>
+        <input type="password" id="resetPwNew" placeholder="Enter new password"/>
+      </div>
+      <div class="form-group">
+        <label>Confirm Password <span style="color:#ef4444">*</span></label>
+        <input type="password" id="resetPwConfirm" placeholder="Repeat new password"/>
+      </div>
+      <div id="resetPwError" style="font-size:13px;color:#dc2626;background:#fef2f2;border:0.5px solid #fca5a5;padding:8px 12px;border-radius:7px;margin-top:10px;display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="closeResetPwModal()">Cancel</button>
+      <button class="btn-modal-confirm" style="background:#c2410c" onclick="confirmResetPw()">Reset Password</button>
+    </div>
+  </div>
+</div>
+
+<!-- PDF Print Area (hidden, used for PDF generation) -->
+<div id="pdfPrintArea" style="display:none"></div>
 
 <!-- Company Add/Edit Modal -->
 <div class="modal-overlay" id="companyModal">
