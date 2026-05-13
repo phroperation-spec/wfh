@@ -874,12 +874,12 @@ const CAT_BG = {
 const AVATAR_COLORS = ['#1a6b5c','#2563eb','#7c3aed','#dc2626','#ea580c','#0891b2'];
 
 // ── PERSISTENT SHARED STORAGE ─────────────────────────────
-// Uses localStorage so all data persists across page refreshes in the same browser.
+// Uses window.storage (shared=true) so all data syncs across ALL devices & users via internet.
 const STORAGE_KEY = 'worklog_submissions_v2';
 const REG_KEY = 'worklog_reg_requests_v1';
 const DEPT_KEY = 'worklog_departments_v1';
 const COMPANY_KEY = 'worklog_company_v1';
-const SYNC_INTERVAL_MS = 2000; // poll every 2 seconds for near real-time sync
+const SYNC_INTERVAL_MS = 3000; // poll every 3 seconds for real-time cross-device sync
 let syncTimer = null;
 let isSyncing = false;
 let lastSyncTs = null;
@@ -892,35 +892,39 @@ function broadcastChange(type){
 }
 if(_bc){
   _bc.onmessage = async (ev) => {
-    // Another tab changed data — pull immediately
     await syncFromServer(true);
   };
 }
 
-async function loadSubmissions(){
+// ── SHARED STORAGE HELPERS ────────────────────────────────
+async function sharedGet(key){
   try{
-    const raw = localStorage.getItem(STORAGE_KEY); const res = raw ? { value: raw } : null;
-    return res ? JSON.parse(res.value) : [];
-  }catch(e){ return []; }
+    const res = await window.storage.get(key, true);
+    return res ? JSON.parse(res.value) : null;
+  }catch(e){ return null; }
+}
+async function sharedSet(key, value){
+  try{
+    await window.storage.set(key, JSON.stringify(value), true);
+    return true;
+  }catch(e){ return false; }
+}
+
+async function loadSubmissions(){
+  try{ return (await sharedGet(STORAGE_KEY)) || []; }catch(e){ return []; }
 }
 async function saveSubmissions(){
   try{
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(submissions));
-    broadcastChange('submissions');
-    updateSyncIndicator('saved');
+    const ok = await sharedSet(STORAGE_KEY, submissions);
+    if(ok){ broadcastChange('submissions'); updateSyncIndicator('saved'); }
+    else { updateSyncIndicator('error'); }
   }catch(e){ updateSyncIndicator('error'); }
 }
 async function loadRegRequests(){
-  try{
-    const raw = localStorage.getItem(REG_KEY); const res = raw ? { value: raw } : null;
-    return res ? JSON.parse(res.value) : [];
-  }catch(e){ return []; }
+  try{ return (await sharedGet(REG_KEY)) || []; }catch(e){ return []; }
 }
 async function saveRegRequests(){
-  try{
-    localStorage.setItem(REG_KEY, JSON.stringify(regRequests));
-    broadcastChange('regRequests');
-  }catch(e){}
+  try{ await sharedSet(REG_KEY, regRequests); broadcastChange('regRequests'); }catch(e){}
 }
 
 // ── DEPARTMENTS ───────────────────────────────────────────
@@ -928,17 +932,10 @@ const DEFAULT_DEPTS = ['SHS','SKILLS','SEAMAN','PSEFI','PSI','COOP','HR'];
 let departments = [...DEFAULT_DEPTS];
 
 async function loadDepartments(){
-  try{
-    const raw = localStorage.getItem(DEPT_KEY); const res = raw ? { value: raw } : null;
-    return res ? JSON.parse(res.value) : [...DEFAULT_DEPTS];
-  }catch(e){ return [...DEFAULT_DEPTS]; }
+  try{ return (await sharedGet(DEPT_KEY)) || [...DEFAULT_DEPTS]; }catch(e){ return [...DEFAULT_DEPTS]; }
 }
 async function saveDepartments(){
-  try{
-    localStorage.setItem(DEPT_KEY, JSON.stringify(departments));
-    broadcastChange('departments');
-    populateAllDeptSelects();
-  }catch(e){}
+  try{ await sharedSet(DEPT_KEY, departments); broadcastChange('departments'); populateAllDeptSelects(); }catch(e){}
 }
 
 // ── COMPANY INFO (multi-company array) ───────────────────
@@ -947,18 +944,16 @@ let companies = [];
 
 async function loadCompanyInfo(){
   try{
-    const raw = localStorage.getItem(COMPANY_KEY); const res = raw ? { value: raw } : null;
-    if(!res) return { name: 'Primary School Foundation, Inc.', address: '', email: '', phone: '', logo: '' };
-    const parsed = JSON.parse(res.value);
+    const parsed = await sharedGet(COMPANY_KEY);
+    if(!parsed) return { name: 'Primary School Foundation, Inc.', address: '', email: '', phone: '', logo: '' };
     if(Array.isArray(parsed)){ companies = parsed; return parsed[0] || { name:'', address:'', email:'', phone:'', logo:'' }; }
     return parsed;
   }catch(e){ return { name: 'Primary School Foundation, Inc.', address: '', email: '', phone: '', logo: '' }; }
 }
 async function loadCompanies(){
   try{
-    const raw = localStorage.getItem(COMPANY_KEY); const res = raw ? { value: raw } : null;
-    if(!res) return [];
-    const parsed = JSON.parse(res.value);
+    const parsed = await sharedGet(COMPANY_KEY);
+    if(!parsed) return [];
     if(Array.isArray(parsed)) return parsed;
     if(parsed && parsed.name) return [{ id: 'mig_'+Date.now(), name:parsed.name, email:parsed.email||'', phone:parsed.phone||'', address:parsed.address||'' }];
     return [];
@@ -966,7 +961,7 @@ async function loadCompanies(){
 }
 async function saveCompanies(){
   try{
-    localStorage.setItem(COMPANY_KEY, JSON.stringify(companies));
+    await sharedSet(COMPANY_KEY, companies);
     broadcastChange('company');
     renderCompanyPanel();
     populateAllCompanySelects();
@@ -1023,13 +1018,13 @@ function updateSyncIndicator(state){
     el.style.color='#f59e0b';
   } else if(state==='saved'){
     lastSyncTs = now;
-    el.innerHTML=`<span class="sync-dot live"></span> Live · ${now}`;
+    el.innerHTML=`<span class="sync-dot live"></span> Synced · ${now}`;
     el.style.color='#16a34a';
   } else if(state==='error'){
     el.innerHTML=`<span class="sync-dot error"></span> Sync error`;
     el.style.color='#dc2626';
   } else {
-    el.innerHTML=`<span class="sync-dot live"></span> Live · ${now}`;
+    el.innerHTML=`<span class="sync-dot live"></span> Synced · ${now}`;
     el.style.color='#16a34a';
   }
 }
@@ -1725,20 +1720,14 @@ async function rejectRegRequest(id){
 }
 
 // ── ADD USER (ADMIN) ──────────────────────────────────────
-let dynamicUsers = []; // admin-added users persist in shared storage
+let dynamicUsers = []; // admin-added users persist in shared storage (cross-device)
 const DYN_USERS_KEY = 'worklog_dynamic_users_v1';
 
 async function loadDynamicUsers(){
-  try{
-    const raw = localStorage.getItem(DYN_USERS_KEY); const res = raw ? { value: raw } : null;
-    return res ? JSON.parse(res.value) : [];
-  }catch(e){ return []; }
+  try{ return (await sharedGet(DYN_USERS_KEY)) || []; }catch(e){ return []; }
 }
 async function saveDynamicUsers(){
-  try{
-    localStorage.setItem(DYN_USERS_KEY, JSON.stringify(dynamicUsers));
-    broadcastChange('dynamicUsers');
-  }catch(e){}
+  try{ await sharedSet(DYN_USERS_KEY, dynamicUsers); broadcastChange('dynamicUsers'); }catch(e){}
 }
 
 function openAddUserModal(){
