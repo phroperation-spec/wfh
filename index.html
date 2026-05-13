@@ -5,9 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>WorkLog — WFH Output Tracker</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
-<!-- Firebase v10 compat -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<!-- Cross-device sync via window.storage (shared artifact storage) -->
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -296,7 +294,7 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
 <!-- Loading overlay shown while shared data loads -->
 <div class="loading-overlay" id="loadingOverlay">
   <div class="loading-spinner"></div>
-  <div class="loading-text">Connecting to shared workspace…</div>
+  <div class="loading-text">Loading shared workspace…</div>
 </div>
 
 <!-- ══ LOGIN SCREEN ══ -->
@@ -877,46 +875,35 @@ const CAT_BG = {
 const AVATAR_COLORS = ['#1a6b5c','#2563eb','#7c3aed','#dc2626','#ea580c','#0891b2'];
 
 // ── PERSISTENT SHARED STORAGE ────────────────────────────
-// localStorage keeps data on this device; Firebase Firestore syncs across all devices.
-// To enable cross-device sync: fill in your Firebase config below.
-// Free setup: console.firebase.google.com → create project → Firestore → start in test mode.
-const SYNC_INTERVAL_MS = 4000;
+// Uses window.storage (shared: true) — built-in artifact storage that syncs
+// across ALL devices and users automatically. No Firebase or API keys needed.
+const SYNC_INTERVAL_MS = 5000;
 let syncTimer = null;
 let isSyncing = false;
 let lastSyncTs = null;
-let _db = null;
-
-// ── FIREBASE CONFIG (fill in your own project) ────────────
-const FIREBASE_CFG = {
-  apiKey: "",           // ← paste your Firebase apiKey here
-  projectId: ""         // ← paste your projectId here  e.g. "my-worklog-app"
-};
-const USE_FIREBASE = !!(FIREBASE_CFG.apiKey && FIREBASE_CFG.projectId);
-
-if(USE_FIREBASE){
-  try{
-    if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CFG);
-    _db = firebase.firestore();
-  }catch(e){ console.warn('Firebase init failed, using localStorage fallback', e); }
-}
 
 // ── STORAGE HELPERS ───────────────────────────────────────
-// Always write to localStorage immediately (instant local persistence).
-// If Firebase is configured, also write there (cross-device sync).
+// Reads from shared artifact storage (visible to all users/devices).
+// Falls back to localStorage if window.storage is unavailable.
 async function _get(key){
-  if(_db){
-    try{
-      const snap = await _db.collection('worklog').doc(key).get();
-      if(snap.exists){ const val = snap.data().data; localStorage.setItem(key, val); return val; }
-    }catch(e){}
-  }
+  try{
+    if(window.storage){
+      const result = await window.storage.get(key, true); // shared=true
+      if(result && result.value != null){
+        try{ localStorage.setItem(key, result.value); }catch(e){}
+        return result.value;
+      }
+    }
+  }catch(e){}
   return localStorage.getItem(key);
 }
 async function _set(key, value){
-  localStorage.setItem(key, value);          // always local-first
-  if(_db){
-    try{ await _db.collection('worklog').doc(key).set({ data: value }); }catch(e){}
-  }
+  try{ localStorage.setItem(key, value); }catch(e){}
+  try{
+    if(window.storage){
+      await window.storage.set(key, value, true); // shared=true
+    }
+  }catch(e){ console.warn('shared storage write failed', e); }
 }
 
 // ── DATA FUNCTIONS ────────────────────────────────────────
@@ -1023,18 +1010,20 @@ function updateSyncIndicator(state){
   const el = document.getElementById('syncStatus');
   if(!el) return;
   const now = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const hasShared = !!(window.storage);
+  const liveLabel = hasShared ? 'Synced' : 'Local';
   if(state==='syncing'){
     el.innerHTML=`<span class="sync-dot syncing"></span> Syncing…`;
     el.style.color='#f59e0b';
   } else if(state==='saved'){
     lastSyncTs = now;
-    el.innerHTML=`<span class="sync-dot live"></span> Live · ${now}`;
+    el.innerHTML=`<span class="sync-dot live"></span> ${liveLabel} · ${now}`;
     el.style.color='#16a34a';
   } else if(state==='error'){
     el.innerHTML=`<span class="sync-dot error"></span> Sync error`;
     el.style.color='#dc2626';
   } else {
-    el.innerHTML=`<span class="sync-dot live"></span> Live · ${now}`;
+    el.innerHTML=`<span class="sync-dot live"></span> ${liveLabel} · ${now}`;
     el.style.color='#16a34a';
   }
 }
