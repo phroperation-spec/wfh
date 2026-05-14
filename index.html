@@ -341,6 +341,7 @@ textarea{resize:vertical;min-height:80px;line-height:1.5}
 .reg-status-pending{background:#fef9c3;color:#92400e;border:0.5px solid #fde68a}
 .reg-status-approved{background:#dcfce7;color:#166534;border:0.5px solid #86efac}
 .reg-status-rejected{background:#fee2e2;color:#991b1b;border:0.5px solid #fca5a5}
+select:disabled{opacity:0.6;cursor:wait;background:var(--bg);}
 </style>
 </head>
 <body>
@@ -1711,17 +1712,45 @@ async function confirmExecReject(){
 }
 
 // ── REGISTRATION MODAL ───────────────────────────────────
-function openRegisterModal(){
-  populateAllCompanySelects();
-  populateAllDeptSelects();
+async function openRegisterModal(){
+  // Reset fields immediately and show modal
   document.getElementById('regName').value='';
   document.getElementById('regUsername').value='';
   document.getElementById('regDept').value='';
-  document.getElementById('regCompany').value='';
   document.getElementById('regPassword').value='';
   document.getElementById('regPasswordConfirm').value='';
   document.getElementById('regError').style.display='none';
+
+  // Show loading state in company dropdown while fetching
+  const regCompany = document.getElementById('regCompany');
+  regCompany.innerHTML='<option value="">⏳ Loading companies…</option>';
+  regCompany.disabled = true;
+
   document.getElementById('registerModal').classList.add('show');
+
+  // Fetch companies & departments fresh from Firebase/storage in real-time
+  try {
+    const [freshCompanies, freshDepts] = await Promise.all([
+      loadCompanies(),
+      loadDepartments()
+    ]);
+    companies = freshCompanies;
+    departments = freshDepts;
+  } catch(e) {
+    console.warn('Failed to fetch fresh data for register modal', e);
+  }
+
+  // Populate selects with fresh data
+  populateAllDeptSelects();
+  populateAllCompanySelects();
+
+  // Re-enable company dropdown
+  regCompany.disabled = false;
+
+  // If no companies exist yet, show a helpful message
+  if(!companies.length){
+    regCompany.innerHTML='<option value="">— No companies available yet —</option>';
+  }
 }
 function closeRegisterModal(){
   document.getElementById('registerModal').classList.remove('show');
